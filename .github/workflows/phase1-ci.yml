@@ -48,4 +48,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile system/setupd.py
+          python3 -m py_compile system/*.py
