@@ -4,7 +4,7 @@ set -Eeuo pipefail
 PROJECT_SLUG="raspi-ticketsystem-fuer-die-schul-it"
 PROJECT_REPO="hnrgsko/${PROJECT_SLUG}"
 SOURCE_REF="${SCHULIT_SOURCE_REF:-main}"
-INSTALL_VERSION="0.3.2-dev"
+INSTALL_VERSION="0.4.0-dev"
 
 log() { printf '\n[schulit] %s\n' "$*"; }
 die() { printf '\n[schulit] FEHLER: %s\n' "$*" >&2; exit 1; }
@@ -60,9 +60,12 @@ run_step "MariaDB absichern" "${SCRIPT_DIR}/installer/database.sh"
 run_step "Setup-Systemdienst einrichten" "${SCRIPT_DIR}/installer/setup-service.sh"
 run_step "Backup-Dienst vorbereiten" "${SCRIPT_DIR}/installer/backup-service.sh"
 run_step "Apache-Setupseite einrichten" "${SCRIPT_DIR}/installer/webserver.sh"
+run_step "Anwendungsdatenbank aktualisieren" "${SCRIPT_DIR}/installer/app-migrations.sh"
+run_step "Ticketsystem installieren" "${SCRIPT_DIR}/installer/application.sh"
 run_step "Installation prüfen" "${SCRIPT_DIR}/installer/verify.sh"
 
 setup_token="$(cat /var/lib/schulit/setup/bootstrap-token 2>/dev/null || true)"
+access_token="$(cat /etc/schulit/access-token 2>/dev/null || true)"
 ip_address="$(hostname -I 2>/dev/null | awk '{print $1}')"
 hostname_value="$(hostname 2>/dev/null || echo raspberrypi)"
 
@@ -87,4 +90,18 @@ printf ' sudo cat /var/lib/schulit/setup/bootstrap-token\n'
 printf '\n'
 printf ' Im Browser folgen jetzt Schulname, Schulkennung, erster\n'
 printf ' System-Administrator und Recovery-Code.\n'
+printf '\n'
+printf ' Lokales Ticketsystem für das Kollegium:\n'
+if [[ -n "${ip_address}" && -n "${access_token}" ]]; then
+  printf ' http://%s:8081/?access=%s\n' "${ip_address}" "${access_token}"
+elif [[ -n "${access_token}" ]]; then
+  printf ' http://%s.local:8081/?access=%s\n' "${hostname_value}" "${access_token}"
+fi
+printf '\n'
+printf ' Ticket-Admin:\n'
+if [[ -n "${ip_address}" ]]; then
+  printf ' http://%s:8081/admin/\n' "${ip_address}"
+else
+  printf ' http://%s.local:8081/admin/\n' "${hostname_value}"
+fi
 printf '============================================================\n'
