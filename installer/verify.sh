@@ -22,7 +22,7 @@ check_setup_token() {
   cookiejar="$(mktemp)"
   page="$(mktemp)"
 
-  if curl --fail --silent --show-error --location       --cookie-jar "${cookiejar}" --cookie "${cookiejar}"       --get --data-urlencode "token=${token}"       http://127.0.0.1:8080/ > "${page}"       && grep -q "Noch sind keine Schule" "${page}"; then
+  if curl --fail --silent --show-error --location       --cookie-jar "${cookiejar}" --cookie "${cookiejar}"       --get --data-urlencode "token=${token}"       http://127.0.0.1:8080/ > "${page}"       && grep -q "Technische Details anzeigen" "${page}"       && ! grep -q 'name="token"' "${page}"; then
     printf '[schulit] ✓ Setup-Token wird akzeptiert\n'
   else
     printf '[schulit] ✗ Setup-Token wird nicht akzeptiert\n' >&2
@@ -54,7 +54,7 @@ mariadb_version="$(mariadb --batch --skip-column-names -e 'SELECT VERSION();' 2>
 apache_version="$(apache2ctl -v | awk -F': ' '/Server version/ {print $2}')"
 
 tmp="$(mktemp)"
-jq -n   --arg install_version "${SCHULIT_INSTALL_VERSION:-0.1.0-dev}"   --arg php "${php_version}"   --arg mariadb "${mariadb_version}"   --arg apache "${apache_version}"   --arg verified_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"   '{
+jq -n   --arg install_version "${SCHULIT_INSTALL_VERSION:-0.2.0-dev}"   --arg php "${php_version}"   --arg mariadb "${mariadb_version}"   --arg apache "${apache_version}"   --arg verified_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"   '{
     phase: 2,
     install_version: $install_version,
     php: $php,
