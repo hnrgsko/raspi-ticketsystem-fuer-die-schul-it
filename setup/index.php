@@ -146,6 +146,23 @@ if ($authorized && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'verify_restore_candidate') {
+            $manifest = (string)($_POST['manifest'] ?? '');
+            $recoveryCodeTest = trim((string)($_POST['recovery_code'] ?? ''));
+            if ($manifest === '' || $recoveryCodeTest === '') {
+                throw new RuntimeException('Bitte Backup und Recovery-Code angeben.');
+            }
+            $verified = schulit_setupd([
+                'action' => 'verify_restore_candidate',
+                'manifest' => $manifest,
+                'recovery_code' => $recoveryCodeTest,
+            ]);
+            $_SESSION['restore_test_result'] = $verified;
+            $_SESSION['backup_message'] = 'Wiederherstellungstest erfolgreich. Das laufende System wurde nicht verändert.';
+            header('Location: /?step=backup', true, 303);
+            exit;
+        }
+
         if ($action === 'skip_backup') {
             header('Location: /?step=done', true, 303);
             exit;
@@ -182,6 +199,8 @@ if ($authorized && !$initialized && $step === 'restore') {
 
 $backupDevices = [];
 $backupStatus = ['configured' => false];
+$availableBackups = [];
+$restoreTestResult = is_array($_SESSION['restore_test_result'] ?? null) ? $_SESSION['restore_test_result'] : [];
 $backupMessage = is_string($_SESSION['backup_message'] ?? null) ? $_SESSION['backup_message'] : null;
 unset($_SESSION['backup_message']);
 if ($authorized && $initialized && $step === 'backup') {
@@ -189,6 +208,10 @@ if ($authorized && $initialized && $step === 'backup') {
         $devicesResponse = schulit_setupd(['action' => 'list_backup_devices']);
         $backupDevices = is_array($devicesResponse['devices'] ?? null) ? $devicesResponse['devices'] : [];
         $backupStatus = schulit_setupd(['action' => 'backup_status']);
+        if (($backupStatus['configured'] ?? false) === true && ($backupStatus['encryption_configured'] ?? false) === true) {
+            $backupListResponse = schulit_setupd(['action' => 'list_backups']);
+            $availableBackups = is_array($backupListResponse['backups'] ?? null) ? $backupListResponse['backups'] : [];
+        }
     } catch (Throwable $backupError) {
         if ($error === null) {
             $error = $backupError->getMessage();
@@ -457,6 +480,35 @@ Status: <?= (($backupStatus['present'] ?? false) === true) ? 'angeschlossen' : '
 <input type="hidden" name="action" value="create_backup">
 <div class="actions"><button type="submit">Backup jetzt erstellen</button><a class="button secondary" href="/?step=done">Weiter</a></div>
 </form>
+
+<?php if ($availableBackups): ?>
+<h3>Wiederherstellung testen</h3>
+<p class="sub">Dieser Test prüft ein echtes Backup vollständig bis zur sicheren Entschlüsselung und Archivkontrolle. Die laufende Installation und Datenbank werden dabei nicht verändert.</p>
+<form method="post">
+<input type="hidden" name="csrf" value="<?= schulit_escape(schulit_csrf_token()) ?>">
+<input type="hidden" name="action" value="verify_restore_candidate">
+<label for="manifest">Backup auswählen</label>
+<select id="manifest" name="manifest" required style="width:100%;padding:12px 13px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;margin-top:7px">
+<?php foreach ($availableBackups as $backupItem): ?>
+<option value="<?= schulit_escape((string)($backupItem['archive'] ?? '')) ?>">
+<?= schulit_escape((string)($backupItem['created_at'] ?? 'Backup')) ?> · <?= schulit_escape((string)($backupItem['archive'] ?? '')) ?>
+</option>
+<?php endforeach; ?>
+</select>
+<label for="restore_test_code">Recovery-Code</label>
+<input id="restore_test_code" type="password" name="recovery_code" required autocomplete="off" placeholder="Recovery-Code eingeben">
+<div class="note">Der Test arbeitet nur mit temporären Dateien unter <code>/run/schulit/</code>. Es wird keine Datenbank überschrieben und keine Konfiguration zurückgespielt.</div>
+<div class="actions"><button type="submit">Wiederherstellung testen – ohne Änderungen</button></div>
+</form>
+<?php endif; ?>
+
+<?php if ($restoreTestResult): ?>
+<div class="note">
+<strong>Wiederherstellungstest bestanden ✓</strong><br>
+SHA-256 geprüft · Recovery-Code gültig · age-Entschlüsselung erfolgreich · Archiv sicher lesbar · Konfiguration vollständig · Datenbankdump vorhanden<br>
+Laufendes System verändert: <strong>nein</strong>
+</div>
+<?php endif; ?>
 <?php endif; ?>
 
 <?php else: ?>
