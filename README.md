@@ -143,7 +143,7 @@ Bestätigt auf echter Hardware:
 
 Der Raspberry Pi 3 bleibt die geplante Mindest-/Referenzplattform und wird später separat gegengeprüft.
 
-### Phase 2 – implementiert, nächster Realtest
+### Phase 2 – auf Raspberry Pi 4 erfolgreich real getestet
 
 Im Repository vorhanden:
 
@@ -157,7 +157,7 @@ Im Repository vorhanden:
 - Speicherung nur eines scrypt-Prüfwerts des Recovery-Codes
 - Setup-CSRF-Schutz und serverseitige Validierung
 
-Die echte Backup-Wiederherstellung ist im Assistenten bereits vorgesehen, wird aber erst mit dem USB-Backupformat aktiviert.
+Auf echter Hardware erfolgreich bestätigt: Schuldaten, erster System-Administrator, lokale Datenbank, Recovery-Code und Abschlussstatus. Die echte Backup-Wiederherstellung ist im Assistenten bereits vorgesehen und wird in Phase 3 mit dem USB-Backupformat aktiviert.
 
 Dokumentation:
 
