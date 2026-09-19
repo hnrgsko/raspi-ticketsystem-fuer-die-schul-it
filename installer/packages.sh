@@ -20,6 +20,8 @@ packages=(
   php-gd
   php-opcache
   python3
+  python3-cryptography
+  age
   curl
   ca-certificates
   openssl
