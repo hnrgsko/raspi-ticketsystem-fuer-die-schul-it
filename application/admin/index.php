@@ -227,7 +227,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null) ? app_admi
 
 <?php if ($tickets === []): ?><div class="notice">Keine Tickets in dieser Ansicht.</div><?php endif; ?>
 <?php foreach ($tickets as $ticket): ?>
-<a href="/admin/?ticket=<?= rawurlencode((string)$ticket['id']) ?><?= $currentView === 'archive' ? '&view=archive' : '' ?>" style="color:inherit;text-decoration:none">
+<a class="ticket-link" href="/admin/?ticket=<?= rawurlencode((string)$ticket['id']) ?><?= $currentView === 'archive' ? '&view=archive' : '' ?>">
 <div class="ticket ticket-row">
 <strong><?= app_escape(app_ticket_number((string)$ticket['id'])) ?></strong>
 <span><?= app_escape((string)$ticket['reporter_name']) ?> (<?= app_escape((string)$ticket['reporter_abbreviation']) ?>)</span>
