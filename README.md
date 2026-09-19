@@ -165,7 +165,7 @@ Dokumentation:
 - [Phase 2 – Einrichtungsassistent](docs/PHASE-2-SETUP.md)
 - [Phase 3a – USB-Backupmedium registrieren](docs/PHASE-3-USB-BACKUP.md)
 
-### Phase 3a – implementiert, nächster Realtest
+### Phase 3a – auf Raspberry Pi 4 erfolgreich real getestet
 
 Neu im Setup-Assistenten:
 
@@ -178,6 +178,8 @@ Neu im Setup-Assistenten:
 - ausschließlich `SchulIT-Ticketsystem/Backups/<Schulkennung>/` anlegen
 - fremde gleichnamige Ordner sicher erkennen und nicht überschreiben
 - schreibgeschützte bzw. nicht unterstützte Datenträger nicht auswählbar machen
+
+Auf echter Hardware erfolgreich bestätigt: USB-Erkennung, Auswahl per UUID und nicht-destruktives Anlegen von `SchulIT-Ticketsystem/Backups/<Schulkennung>/` auf einem vorhandenen USB-Datenträger.
 
 Dokumentation: [Phase 3a – USB-Backupmedium registrieren](docs/PHASE-3-USB-BACKUP.md)
 
