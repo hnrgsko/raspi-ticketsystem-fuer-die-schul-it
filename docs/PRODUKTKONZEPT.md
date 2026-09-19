@@ -328,7 +328,47 @@ Zu extrahierende Bereiche sind insbesondere:
 
 Schulspezifische Werte aus der bestehenden Installation werden nicht als feste Standardwerte übernommen.
 
-## 17. Nächste technische Phase
+## 17. Update-Service
+
+Der Update-Service ist Bestandteil der Grundarchitektur und kein nachträgliches Zusatzmodul.
+
+Jede aktive Installation prüft selbstständig in einem konfigurierbaren Intervall auf veröffentlichte stabile Versionen. Dafür muss sich die Schule nicht zentral bei einem eigenen Update-Server registrieren.
+
+Bei einer neueren Version erscheint für berechtigte Administratoren eine sichtbare Update-Meldung. Angezeigt werden mindestens:
+
+- neue Versionsnummer
+- Veröffentlichungsdatum
+- kurze Release Notes
+- Sicherheits-/Dringlichkeitshinweis
+- benötigte Neustarts
+- erwartete Datenbankmigrationen
+- vorhandener freier Speicher
+- Zeitpunkt des letzten erfolgreichen Backups
+
+Der Standardablauf lautet:
+
+1. neue Version erkennen
+2. Administrator informieren
+3. Administrator bestätigt „Update installieren“
+4. Vorprüfung durchführen
+5. frisches Backup von Datenbank und Konfiguration anlegen
+6. Releasepaket herunterladen
+7. Prüfsumme und digitale Signatur prüfen
+8. Wartungsmodus aktivieren
+9. neue Version in ein separates Release-Verzeichnis installieren
+10. erforderliche Datenbankmigrationen ausführen
+11. aktive Version atomar umschalten
+12. Dienste neu laden
+13. Health-Checks durchführen
+14. Erfolg protokollieren und Wartungsmodus beenden
+
+Schlägt das Update vor der Datenbankänderung fehl, wird ohne Umschalten abgebrochen. Schlägt es nach einer Datenbankmigration fehl, muss der Wiederherstellungsweg das zuvor angelegte Datenbankbackup berücksichtigen.
+
+Der Webserverprozess erhält keine allgemeine Root-Shell. Ein eigener lokaler Update-Dienst führt ausschließlich klar definierte, signierte Updateaktionen aus.
+
+Details: [UPDATE-SERVICE.md](UPDATE-SERVICE.md).
+
+## 18. Nächste technische Phase
 
 Als Nächstes wird die technische Zielarchitektur konkretisiert:
 
