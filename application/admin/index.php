@@ -12,6 +12,26 @@ header('X-Robots-Tag: noindex, nofollow');
 
 app_start_session(SCHULIT_ADMIN_SESSIONS, 'schulit_admin');
 
+function admin_post_filters(array $post): array
+{
+    $mapped = [];
+    foreach (['view','q','status','priority','type','category','sort'] as $key) {
+        $value = $post['filter_' . $key] ?? '';
+        $mapped[$key] = is_string($value) ? $value : '';
+    }
+    return admin_filters($mapped);
+}
+
+function admin_filter_hidden(array $filters): string
+{
+    $html = '';
+    foreach ($filters as $key => $value) {
+        $html .= '<input type="hidden" name="filter_' . app_escape((string)$key)
+            . '" value="' . app_escape((string)$value) . '">';
+    }
+    return $html;
+}
+
 function admin_filters(array $query): array
 {
     $view = (($query['view'] ?? '') === 'archive') ? 'archive' : 'active';
@@ -126,7 +146,7 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $status = (string)($_POST['status'] ?? '');
             app_admin_quick_status($db, $ticketId, (string)$user['id'], $status);
             $_SESSION['admin_notice'] = app_ticket_number($ticketId) . ' → ' . app_status_label($status) . '.';
-            header('Location: ' . admin_url(admin_filters($_POST)), true, 303);
+            header('Location: ' . admin_url(admin_post_filters($_POST)), true, 303);
             exit;
         }
 
@@ -134,7 +154,7 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $ticketId = (string)($_POST['ticket_id'] ?? '');
             app_admin_archive($db, $ticketId, true);
             $_SESSION['admin_notice'] = app_ticket_number($ticketId) . ' wurde archiviert.';
-            header('Location: ' . admin_url(admin_filters($_POST)), true, 303);
+            header('Location: ' . admin_url(admin_post_filters($_POST)), true, 303);
             exit;
         }
 
@@ -142,7 +162,7 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $ticketId = (string)($_POST['ticket_id'] ?? '');
             app_admin_update_ticket($db, $ticketId, (string)$user['id'], $_POST);
             $_SESSION['admin_notice'] = app_ticket_number($ticketId) . ' wurde aktualisiert.';
-            $next = admin_filters($_POST);
+            $next = admin_post_filters($_POST);
             header('Location: ' . admin_url($next, ['ticket'=>$ticketId]), true, 303);
             exit;
         }
@@ -152,7 +172,7 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $archive = $action === 'archive_ticket';
             app_admin_archive($db, $ticketId, $archive);
             $_SESSION['admin_notice'] = app_ticket_number($ticketId) . ($archive ? ' wurde archiviert.' : ' wurde wiederhergestellt.');
-            $next = admin_filters($_POST);
+            $next = admin_post_filters($_POST);
             $next['view'] = $archive ? 'archive' : 'active';
             header('Location: ' . admin_url($next, ['ticket'=>$ticketId]), true, 303);
             exit;
@@ -297,7 +317,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <input type="hidden" name="action" value="update_ticket">
 <input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
 <input type="hidden" name="ticket_id" value="<?= app_escape((string)$detail['id']) ?>">
-<?php foreach ($filters as $key=>$value): ?><input type="hidden" name="<?= app_escape($key) ?>" value="<?= app_escape((string)$value) ?>"><?php endforeach; ?>
+<?= admin_filter_hidden($filters) ?>
 <label for="status">Status</label>
 <select id="status" name="status"><?php foreach (['new','in_progress','awaiting_reply','done'] as $status): ?><option value="<?= $status ?>"<?= $detail['status']===$status?' selected':'' ?>><?= app_escape(app_status_label($status)) ?></option><?php endforeach; ?></select>
 <label for="priority">Priorität</label>
@@ -313,12 +333,12 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <?php if ($detail['archived_at'] !== null): ?>
 <form method="post" action="<?= app_escape(admin_url($filters, ['ticket'=>(string)$detail['id']])) ?>">
 <input type="hidden" name="action" value="restore_ticket"><input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>"><input type="hidden" name="ticket_id" value="<?= app_escape((string)$detail['id']) ?>">
-<?php foreach ($filters as $key=>$value): ?><input type="hidden" name="<?= app_escape($key) ?>" value="<?= app_escape((string)$value) ?>"><?php endforeach; ?>
+<?= admin_filter_hidden($filters) ?>
 <button type="submit" class="secondary-button">Aus Archiv wiederherstellen</button></form>
 <?php elseif ($detail['status']==='done'): ?>
 <form method="post" action="<?= app_escape(admin_url($filters, ['ticket'=>(string)$detail['id']])) ?>">
 <input type="hidden" name="action" value="archive_ticket"><input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>"><input type="hidden" name="ticket_id" value="<?= app_escape((string)$detail['id']) ?>">
-<?php foreach ($filters as $key=>$value): ?><input type="hidden" name="<?= app_escape($key) ?>" value="<?= app_escape((string)$value) ?>"><?php endforeach; ?>
+<?= admin_filter_hidden($filters) ?>
 <button type="submit" class="secondary-button">Ticket archivieren</button></form>
 <?php else: ?><p class="notice">Ein Ticket kann archiviert werden, sobald es „Erledigt“ ist.</p><?php endif; ?>
 </section>
@@ -365,13 +385,13 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <?php foreach ([['in_progress','In Bearbeitung'],['awaiting_reply','Rückfrage'],['done','Erledigt']] as [$quickValue,$quickLabel]): ?>
 <form method="post">
 <input type="hidden" name="action" value="quick_status"><input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>"><input type="hidden" name="ticket_id" value="<?= app_escape((string)$row['id']) ?>"><input type="hidden" name="status" value="<?= $quickValue ?>">
-<?php foreach ($filters as $key=>$value): ?><input type="hidden" name="<?= app_escape($key) ?>" value="<?= app_escape((string)$value) ?>"><?php endforeach; ?>
+<?= admin_filter_hidden($filters) ?>
 <button type="submit" class="quick-action quick-<?= $quickValue ?><?= $row['status']===$quickValue?' is-current':'' ?>"<?= $row['status']===$quickValue?' disabled':'' ?>><?= admin_icon($quickValue) ?><span><?= $quickLabel ?></span></button>
 </form>
 <?php endforeach; ?>
 <form method="post">
 <input type="hidden" name="action" value="quick_archive"><input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>"><input type="hidden" name="ticket_id" value="<?= app_escape((string)$row['id']) ?>">
-<?php foreach ($filters as $key=>$value): ?><input type="hidden" name="<?= app_escape($key) ?>" value="<?= app_escape((string)$value) ?>"><?php endforeach; ?>
+<?= admin_filter_hidden($filters) ?>
 <button type="submit" class="quick-action quick-archive"<?= $row['status']!=='done'?' disabled':'' ?> title="<?= $row['status']==='done' ? 'Ticket archivieren' : 'Erst nach Erledigung verfügbar' ?>"><?= admin_icon('archive') ?><span>Archivieren</span></button>
 </form>
 </div>
