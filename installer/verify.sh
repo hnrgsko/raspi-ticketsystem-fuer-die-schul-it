@@ -16,6 +16,22 @@ check() {
   fi
 }
 
+check_setup_token() {
+  local token cookiejar page
+  token="$(cat /var/lib/schulit/setup/bootstrap-token)"
+  cookiejar="$(mktemp)"
+  page="$(mktemp)"
+
+  if curl --fail --silent --show-error --location       --cookie-jar "${cookiejar}" --cookie "${cookiejar}"       --get --data-urlencode "token=${token}"       http://127.0.0.1:8080/ > "${page}"       && grep -q "Noch sind keine Schule" "${page}"; then
+    printf '[schulit] ✓ Setup-Token wird akzeptiert\n'
+  else
+    printf '[schulit] ✗ Setup-Token wird nicht akzeptiert\n' >&2
+    failures=$((failures + 1))
+  fi
+
+  rm -f "${cookiejar}" "${page}"
+}
+
 check "Apache-Konfiguration" apache2ctl configtest
 check "Apache läuft" systemctl is-active apache2
 check "MariaDB läuft" systemctl is-active mariadb
@@ -25,6 +41,7 @@ check "PDO MySQL geladen" php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);'
 check "mbstring geladen" php -r 'exit(extension_loaded("mbstring") ? 0 : 1);'
 check "curl geladen" php -r 'exit(extension_loaded("curl") ? 0 : 1);'
 check "Setup-Seite erreichbar" curl --fail --silent --show-error http://127.0.0.1:8080/
+check_setup_token
 
 if (( failures > 0 )); then
   die "${failures} Systemprüfung(en) fehlgeschlagen."
