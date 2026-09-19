@@ -11,6 +11,7 @@ import secrets
 import shutil
 import subprocess
 import tempfile
+import tarfile
 from typing import Any
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -116,6 +117,10 @@ def _list_usb_devices() -> list[dict[str, Any]]:
                 "mountpoint": mountpoint(node),
                 "fstype": fstype,
                 "read_only": bool(node.get("ro")),
+                "label": str(node.get("label") or "").strip(),
+                "model": str(node.get("model") or "").strip(),
+                "vendor": str(node.get("vendor") or "").strip(),
+                "size_bytes": int(node.get("size") or 0),
             })
         children = node.get("children")
         if isinstance(children, list):
@@ -412,6 +417,7 @@ def create_backup() -> dict[str, Any]:
             _copy_if_exists(pathlib.Path("/etc/schulit/system.conf"), staging / "etc-schulit" / "system.conf")
             _copy_if_exists(BACKUP_CONFIG, staging / "etc-schulit" / "backup.json")
             _copy_if_exists(BACKUP_CRYPTO, staging / "etc-schulit" / "backup-crypto.json")
+            _copy_if_exists(BACKUP_RECIPIENT, staging / "etc-schulit" / "backup-recipient.txt")
             _copy_if_exists(STATE_FILE, staging / "state" / "installation.json")
             _copy_if_exists(RECOVERY_FILE, staging / "state" / "recovery.json")
             if UPLOADS_DIR.is_dir():
@@ -534,3 +540,379 @@ def status() -> dict[str, Any]:
         except (OSError, json.JSONDecodeError):
             pass
     return result
+
+
+def _mount_device_by_uuid(device: dict[str, Any], suffix: str):
+    class _Mount:
+        def __init__(self) -> None:
+            self.mountpoint: pathlib.Path | None = None
+            self.mounted_here = False
+
+        def __enter__(self) -> pathlib.Path:
+            current = device.get("mountpoint")
+            if isinstance(current, str) and current:
+                self.mountpoint = pathlib.Path(current)
+                return self.mountpoint
+
+            target = RUN_DIR / suffix
+            target.mkdir(parents=True, exist_ok=True, mode=0o700)
+            _run(["mount", "-U", str(device["uuid"]), str(target)], timeout=20)
+            self.mountpoint = target
+            self.mounted_here = True
+            return target
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            if self.mounted_here and self.mountpoint is not None:
+                try:
+                    _run(["umount", str(self.mountpoint)], timeout=20)
+                finally:
+                    try:
+                        self.mountpoint.rmdir()
+                    except OSError:
+                        pass
+
+    return _Mount()
+
+
+def discover_restore_backups() -> dict[str, Any]:
+    results: list[dict[str, Any]] = []
+    for index, device in enumerate(_list_usb_devices()):
+        if bool(device.get("read_only")):
+            # Read-only media can still be restored from.
+            pass
+        try:
+            with _mount_device_by_uuid(device, f"restore-scan-{index}") as mountpoint:
+                root = mountpoint / "SchulIT-Ticketsystem" / "Backups"
+                if not root.is_dir() or root.is_symlink():
+                    continue
+
+                for school_dir in root.iterdir():
+                    if not school_dir.is_dir() or school_dir.is_symlink():
+                        continue
+                    school_id = school_dir.name
+                    if school_id in {"", ".", ".."}:
+                        continue
+                    manifests_dir = school_dir / "manifests"
+                    archives_dir = school_dir / "archives"
+                    recovery_path = school_dir / "recovery" / "age-identity.json"
+                    if not manifests_dir.is_dir() or not archives_dir.is_dir() or not recovery_path.is_file():
+                        continue
+
+                    for manifest_path in sorted(manifests_dir.glob("*.json"), reverse=True):
+                        try:
+                            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                        except (OSError, json.JSONDecodeError):
+                            continue
+                        if not isinstance(manifest, dict) or manifest.get("format") != "schulit-backup-manifest-v1":
+                            continue
+                        archive_name = str(manifest.get("archive") or "")
+                        if pathlib.PurePosixPath(archive_name).name != archive_name or not archive_name.endswith(".age"):
+                            continue
+                        archive_path = archives_dir / archive_name
+                        if not archive_path.is_file():
+                            continue
+                        if str(manifest.get("school_id") or "") != school_id:
+                            continue
+
+                        results.append({
+                            "device_uuid": str(device["uuid"]),
+                            "device_label": str(device.get("label") or ""),
+                            "device_model": str(device.get("model") or ""),
+                            "device_size_bytes": int(device.get("size_bytes") or 0),
+                            "school_id": school_id,
+                            "manifest": manifest_path.name,
+                            "archive": archive_name,
+                            "created_at": str(manifest.get("created_at") or ""),
+                            "size_bytes": int(manifest.get("size_bytes") or 0),
+                            "sha256": str(manifest.get("sha256") or ""),
+                        })
+        except BackupError:
+            continue
+
+    results.sort(key=lambda item: str(item.get("created_at") or ""), reverse=True)
+    return {"ok": True, "backups": results[:50]}
+
+
+def _derive_restore_key(recovery_code: str, wrapper: dict[str, Any]) -> bytes:
+    kdf = wrapper.get("kdf")
+    if not isinstance(kdf, dict) or kdf.get("name") != "scrypt":
+        raise BackupError("Unbekanntes Schlüsselableitungsverfahren im Backup.")
+    try:
+        salt = base64.b64decode(str(kdf["salt_b64"]), validate=True)
+        n = int(kdf["n"])
+        r = int(kdf["r"])
+        p = int(kdf["p"])
+    except Exception as exc:
+        raise BackupError("Schlüsselmetadaten im Backup sind beschädigt.") from exc
+
+    if n < 2**13 or n > 2**16 or r < 1 or r > 16 or p < 1 or p > 8:
+        raise BackupError("Schlüsselparameter im Backup liegen außerhalb der erlaubten Grenzen.")
+
+    try:
+        return hashlib.scrypt(
+            recovery_code.encode("utf-8"),
+            salt=salt,
+            n=n,
+            r=r,
+            p=p,
+            dklen=32,
+            maxmem=128 * 1024 * 1024,
+        )
+    except ValueError as exc:
+        raise BackupError("Der Recovery-Code konnte auf diesem System nicht sicher verarbeitet werden.") from exc
+
+
+def _unwrap_age_identity(wrapper_path: pathlib.Path, recovery_code: str, expected_school_id: str) -> bytes:
+    wrapper = _load_json(wrapper_path, "Verschlüsselter Recovery-Schlüssel")
+    if wrapper.get("format") != "schulit-age-identity-wrap-v1":
+        raise BackupError("Unbekanntes Recovery-Schlüsselformat.")
+    if str(wrapper.get("school_id") or "") != expected_school_id:
+        raise BackupError("Recovery-Schlüssel und ausgewähltes Backup gehören nicht zusammen.")
+
+    cipher = wrapper.get("cipher")
+    if not isinstance(cipher, dict) or cipher.get("name") != "AES-256-GCM":
+        raise BackupError("Unbekanntes Verschlüsselungsverfahren für den Recovery-Schlüssel.")
+
+    try:
+        nonce = base64.b64decode(str(cipher["nonce_b64"]), validate=True)
+        ciphertext = base64.b64decode(str(cipher["ciphertext_b64"]), validate=True)
+    except Exception as exc:
+        raise BackupError("Verschlüsselter Recovery-Schlüssel ist beschädigt.") from exc
+
+    key = _derive_restore_key(recovery_code, wrapper)
+    aad = f"schulit-backup-key:{expected_school_id}".encode("utf-8")
+    try:
+        identity = AESGCM(key).decrypt(nonce, ciphertext, aad)
+    except Exception as exc:
+        raise BackupError("Recovery-Code ist falsch oder der Recovery-Schlüssel ist beschädigt.") from exc
+
+    if b"AGE-SECRET-KEY-" not in identity:
+        raise BackupError("Entschlüsselter Recovery-Schlüssel ist ungültig.")
+    return identity
+
+
+def _sha256_file(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _safe_extract_tar_gz(archive: pathlib.Path, destination: pathlib.Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True, mode=0o700)
+    root = destination.resolve()
+    with tarfile.open(archive, "r:gz") as tar:
+        for member in tar.getmembers():
+            pure = pathlib.PurePosixPath(member.name)
+            if pure.is_absolute() or ".." in pure.parts:
+                raise BackupError("Backup enthält einen unsicheren Dateipfad.")
+            if member.issym() or member.islnk() or member.isdev():
+                raise BackupError("Backup enthält einen nicht erlaubten Dateityp.")
+
+            clean_parts = [part for part in pure.parts if part not in ("", ".")]
+            target = root.joinpath(*clean_parts)
+            try:
+                target.relative_to(root)
+            except ValueError as exc:
+                raise BackupError("Backup enthält einen ungültigen Dateipfad.") from exc
+
+            if member.isdir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            if not member.isfile():
+                continue
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+            source = tar.extractfile(member)
+            if source is None:
+                raise BackupError("Backup-Datei konnte nicht gelesen werden.")
+            with source, open(target, "wb") as output:
+                shutil.copyfileobj(source, output)
+            os.chmod(target, member.mode & 0o777)
+
+
+def _read_database_access(app_config: pathlib.Path) -> dict[str, Any]:
+    try:
+        result = _run([
+            "php",
+            "-r",
+            '$c=require $argv[1]; echo json_encode($c["database"] ?? []);',
+            str(app_config),
+        ], timeout=20)
+        data = json.loads(result.stdout.decode("utf-8"))
+    except Exception as exc:
+        raise BackupError("Datenbankzugang konnte aus dem Backup nicht gelesen werden.") from exc
+    if not isinstance(data, dict):
+        raise BackupError("Datenbankzugang im Backup ist ungültig.")
+
+    name = str(data.get("name") or "")
+    user = str(data.get("user") or "")
+    password = str(data.get("password") or "")
+    if name != DB_NAME or user != "schulit_app" or len(password) < 20:
+        raise BackupError("Datenbankzugang im Backup entspricht nicht dem erwarteten Format.")
+    return {"name": name, "user": user, "password": password}
+
+
+def _restore_database(payload: pathlib.Path, db_access: dict[str, Any]) -> None:
+    password = str(db_access["password"])
+    escaped = password.replace("\\", "\\\\").replace("'", "\\'")
+    root_sql = f"""
+DROP DATABASE IF EXISTS `{DB_NAME}`;
+DROP USER IF EXISTS 'schulit_app'@'localhost';
+CREATE USER 'schulit_app'@'localhost' IDENTIFIED BY '{escaped}';
+GRANT SELECT, INSERT, UPDATE, DELETE ON `{DB_NAME}`.* TO 'schulit_app'@'localhost';
+FLUSH PRIVILEGES;
+"""
+    _run(["mariadb", "--protocol=socket"], input_bytes=root_sql.encode("utf-8"), timeout=60)
+
+    dump = payload / "database.sql"
+    if not dump.is_file():
+        raise BackupError("Datenbanksicherung fehlt im Backup.")
+    try:
+        with open(dump, "rb") as source:
+            subprocess.run(
+                ["mariadb", "--protocol=socket"],
+                stdin=source,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+                timeout=240,
+            )
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or b"").decode("utf-8", errors="replace").strip()
+        raise BackupError("Datenbank konnte nicht wiederhergestellt werden" + (f": {detail}" if detail else ".")) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise BackupError("Datenbank-Wiederherstellung hat zu lange gedauert.") from exc
+
+
+def _install_restored_file(source: pathlib.Path, destination: pathlib.Path, mode: int, group: str | None = None) -> None:
+    if not source.is_file():
+        return
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    tmp = destination.with_name(destination.name + ".restore-tmp")
+    shutil.copy2(source, tmp)
+    os.chmod(tmp, mode)
+    gid = 0
+    if group == "www-data":
+        import grp
+        gid = grp.getgrnam("www-data").gr_gid
+    os.chown(tmp, 0, gid)
+    os.replace(tmp, destination)
+
+
+def restore_backup(selection: dict[str, Any], recovery_code: str) -> dict[str, Any]:
+    if STATE_FILE.exists():
+        raise BackupError(
+            "Auf diesem Raspberry Pi ist bereits eine Installation eingerichtet. "
+            "Die Wiederherstellung ist nur auf einer frischen bzw. noch nicht eingerichteten Installation erlaubt."
+        )
+
+    device_uuid = str(selection.get("device_uuid") or "")
+    school_id = str(selection.get("school_id") or "")
+    manifest_name = str(selection.get("manifest") or "")
+    if not device_uuid or not school_id or pathlib.PurePosixPath(manifest_name).name != manifest_name:
+        raise BackupError("Ungültige Backup-Auswahl.")
+
+    device = next((item for item in _list_usb_devices() if str(item["uuid"]) == device_uuid), None)
+    if device is None:
+        raise BackupError("Der ausgewählte USB-Datenträger ist nicht angeschlossen.")
+
+    with _mount_device_by_uuid(device, "restore-selected") as mountpoint:
+        school_dir = mountpoint / "SchulIT-Ticketsystem" / "Backups" / school_id
+        manifest_path = school_dir / "manifests" / manifest_name
+        recovery_path = school_dir / "recovery" / "age-identity.json"
+        manifest = _load_json(manifest_path, "Backup-Manifest")
+        if manifest.get("format") != "schulit-backup-manifest-v1":
+            raise BackupError("Unbekanntes Backup-Manifest.")
+        if str(manifest.get("school_id") or "") != school_id:
+            raise BackupError("Backup-Manifest gehört zu einer anderen Schulkennung.")
+
+        archive_name = str(manifest.get("archive") or "")
+        if pathlib.PurePosixPath(archive_name).name != archive_name:
+            raise BackupError("Ungültiger Archivname im Manifest.")
+        archive_path = school_dir / "archives" / archive_name
+        if not archive_path.is_file():
+            raise BackupError("Backup-Archiv fehlt.")
+
+        expected_hash = str(manifest.get("sha256") or "").lower()
+        if len(expected_hash) != 64 or _sha256_file(archive_path) != expected_hash:
+            raise BackupError("SHA-256-Prüfung des Backup-Archivs ist fehlgeschlagen.")
+
+        identity = _unwrap_age_identity(recovery_path, recovery_code, school_id)
+
+        with tempfile.TemporaryDirectory(prefix="schulit-restore-", dir=str(RUN_DIR)) as tmpdir:
+            tmp = pathlib.Path(tmpdir)
+            identity_path = tmp / "identity.txt"
+            identity_path.write_bytes(identity)
+            os.chmod(identity_path, 0o600)
+
+            decrypted = tmp / "backup.tar.gz"
+            _run([
+                "age", "-d",
+                "-i", str(identity_path),
+                "-o", str(decrypted),
+                str(archive_path),
+            ], timeout=300)
+
+            payload = tmp / "payload"
+            _safe_extract_tar_gz(decrypted, payload)
+
+            payload_meta = _load_json(payload / "backup.json", "Backup-Inhaltsmanifest")
+            if payload_meta.get("format") != "schulit-backup-payload-v1":
+                raise BackupError("Unbekanntes Backup-Inhaltsformat.")
+            if str(payload_meta.get("school_id") or "") != school_id:
+                raise BackupError("Entschlüsseltes Backup gehört nicht zur ausgewählten Schulkennung.")
+
+            app_config = payload / "etc-schulit" / "app.php"
+            db_access = _read_database_access(app_config)
+            _restore_database(payload, db_access)
+
+            _install_restored_file(app_config, pathlib.Path("/etc/schulit/app.php"), 0o640, "www-data")
+            _install_restored_file(payload / "etc-schulit" / "system.conf", pathlib.Path("/etc/schulit/system.conf"), 0o640)
+            _install_restored_file(payload / "etc-schulit" / "backup.json", BACKUP_CONFIG, 0o600)
+            _install_restored_file(payload / "etc-schulit" / "backup-crypto.json", BACKUP_CRYPTO, 0o600)
+
+            recipient_source = payload / "etc-schulit" / "backup-recipient.txt"
+            if recipient_source.is_file():
+                _install_restored_file(recipient_source, BACKUP_RECIPIENT, 0o644)
+            else:
+                crypto = _load_json(payload / "etc-schulit" / "backup-crypto.json", "Backup-Verschlüsselung")
+                recipient = str(crypto.get("recipient") or "")
+                if not recipient.startswith("age1"):
+                    raise BackupError("Öffentlicher Backup-Schlüssel fehlt im Backup.")
+                _atomic_write(BACKUP_RECIPIENT, recipient + "\n", 0o644)
+
+            _install_restored_file(payload / "state" / "installation.json", STATE_FILE, 0o640, "www-data")
+            _install_restored_file(payload / "state" / "recovery.json", RECOVERY_FILE, 0o600)
+
+            uploads = payload / "uploads"
+            if uploads.is_dir():
+                if UPLOADS_DIR.exists():
+                    shutil.rmtree(UPLOADS_DIR)
+                shutil.copytree(uploads, UPLOADS_DIR)
+                os.chown(UPLOADS_DIR, 0, 0)
+
+    try:
+        subprocess.run(
+            ["systemctl", "enable", "--now", "schulit-backup.timer"],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=20,
+        )
+    except Exception as exc:
+        raise BackupError(
+            "Wiederherstellung war erfolgreich, aber der automatische Backup-Timer konnte nicht aktiviert werden."
+        ) from exc
+
+    restored_state = _load_json(STATE_FILE, "Wiederhergestellter Installationsstatus")
+    return {
+        "ok": True,
+        "restored": True,
+        "school_id": school_id,
+        "school_name": str(restored_state.get("school_name") or ""),
+        "admin_username": str(restored_state.get("admin_username") or ""),
+        "backup_created_at": str(manifest.get("created_at") or ""),
+        "archive": archive_name,
+    }
