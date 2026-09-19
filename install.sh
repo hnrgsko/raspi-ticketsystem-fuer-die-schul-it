@@ -4,7 +4,7 @@ set -Eeuo pipefail
 PROJECT_SLUG="raspi-ticketsystem-fuer-die-schul-it"
 PROJECT_REPO="hnrgsko/${PROJECT_SLUG}"
 SOURCE_REF="${SCHULIT_SOURCE_REF:-main}"
-INSTALL_VERSION="0.1.0-dev"
+INSTALL_VERSION="0.2.0-dev"
 
 log() { printf '\n[schulit] %s\n' "$*"; }
 die() { printf '\n[schulit] FEHLER: %s\n' "$*" >&2; exit 1; }
@@ -27,9 +27,7 @@ bootstrap_source() {
   archive="${tmp}/source.tar.gz"
 
   log "Installer-Dateien werden von GitHub geladen (Ref: ${SOURCE_REF}) ..."
-  curl --fail --location --silent --show-error \
-    "https://github.com/${PROJECT_REPO}/archive/refs/heads/${SOURCE_REF}.tar.gz" \
-    --output "${archive}" || die "Installer konnte nicht heruntergeladen werden."
+  curl --fail --location --silent --show-error     "https://github.com/${PROJECT_REPO}/archive/refs/heads/${SOURCE_REF}.tar.gz"     --output "${archive}" || die "Installer konnte nicht heruntergeladen werden."
 
   tar -xzf "${archive}" -C "${tmp}"
   src="$(find "${tmp}" -mindepth 1 -maxdepth 1 -type d -name "${PROJECT_SLUG}-*" | head -n 1)"
@@ -51,7 +49,7 @@ source "${SCRIPT_DIR}/installer/common.sh"
 
 acquire_install_lock
 
-log "Technische Phase 1 – Serverbasis"
+log "Schul-IT Ticketsystem – technische Basis und Setup-Assistent"
 info "Quelle: ${PROJECT_REPO}@${SOURCE_REF}"
 info "Installerversion: ${INSTALL_VERSION}"
 
@@ -59,6 +57,7 @@ run_step "System prüfen" "${SCRIPT_DIR}/installer/system-check.sh"
 run_step "Pakete installieren" "${SCRIPT_DIR}/installer/packages.sh"
 run_step "Dateisystem vorbereiten" "${SCRIPT_DIR}/installer/filesystem.sh"
 run_step "MariaDB absichern" "${SCRIPT_DIR}/installer/database.sh"
+run_step "Setup-Systemdienst einrichten" "${SCRIPT_DIR}/installer/setup-service.sh"
 run_step "Apache-Setupseite einrichten" "${SCRIPT_DIR}/installer/webserver.sh"
 run_step "Installation prüfen" "${SCRIPT_DIR}/installer/verify.sh"
 
@@ -68,12 +67,12 @@ hostname_value="$(hostname 2>/dev/null || echo raspberrypi)"
 
 printf '\n'
 printf '============================================================\n'
-printf ' Schul-IT Ticketsystem – Serverbasis installiert\n'
+printf ' Schul-IT Ticketsystem – Setup-Assistent bereit\n'
 printf '============================================================\n'
 printf ' Hostname: %s\n' "${hostname_value}"
 [[ -n "${ip_address}" ]] && printf ' Lokale IP: %s\n' "${ip_address}"
 printf '\n'
-printf ' Setup im Browser öffnen:\n'
+printf ' Einrichtung im Browser öffnen:\n'
 if [[ -n "${ip_address}" && -n "${setup_token}" ]]; then
   printf ' http://%s:8080/?token=%s\n' "${ip_address}" "${setup_token}"
 elif [[ -n "${setup_token}" ]]; then
@@ -85,6 +84,6 @@ printf '\n'
 printf ' Token später erneut anzeigen:\n'
 printf ' sudo cat /var/lib/schulit/setup/bootstrap-token\n'
 printf '\n'
-printf ' Dies ist Phase 1: Noch keine Ticketdatenbank, Domain oder\n'
-printf ' Cloudflare-Verbindung. Diese folgen im Web-Assistenten.\n'
+printf ' Im Browser folgen jetzt Schulname, Schulkennung, erster\n'
+printf ' System-Administrator und Recovery-Code.\n'
 printf '============================================================\n'
