@@ -136,3 +136,4 @@ Siehe auch:
 
 - [Produkt- und Installationskonzept](docs/PRODUKTKONZEPT.md)
 - [Update-Service](docs/UPDATE-SERVICE.md)
+- [Technische Zielarchitektur v1](docs/TECHNISCHE-ZIELARCHITEKTUR.md)
