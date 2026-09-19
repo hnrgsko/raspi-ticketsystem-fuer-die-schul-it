@@ -29,13 +29,19 @@ cat > /etc/apache2/sites-available/schulit-setup.conf <<'EOF'
     Header always set Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
 
     ErrorLog ${APACHE_LOG_DIR}/schulit-setup-error.log
-    CustomLog ${APACHE_LOG_DIR}/schulit-setup-access.log combined
+
+    # Deliberately omit the query string so the bootstrap token is not written to access logs.
+    LogFormat "%h %l %u %t \"%m %U %H\" %>s %b" schulit_setup
+    CustomLog ${APACHE_LOG_DIR}/schulit-setup-access.log schulit_setup
 </VirtualHost>
 EOF
 
 a2enmod headers >/dev/null
 a2enconf schulit-setup-listen >/dev/null
 a2ensite schulit-setup >/dev/null
+
+# The Apache welcome page is not part of the product.
+a2dissite 000-default >/dev/null 2>&1 || true
 
 apache2ctl configtest
 systemctl reload apache2
