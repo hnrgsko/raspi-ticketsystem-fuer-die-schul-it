@@ -30,6 +30,7 @@ RECOVERY_DIR = pathlib.Path("/var/lib/schulit/recovery")
 RECOVERY_FILE = RECOVERY_DIR / "recovery.json"
 CONFIG_DIR = pathlib.Path("/etc/schulit")
 APP_CONFIG = CONFIG_DIR / "app.php"
+BACKUP_CONFIG = CONFIG_DIR / "backup.json"
 MIGRATION_DIR = pathlib.Path("/opt/schulit/setup-migrations")
 DB_NAME = "schulit"
 DB_USER = "schulit_app"
@@ -241,6 +242,294 @@ def get_status() -> dict[str, Any]:
     return {"ok": True, "initialized": True, "state": state}
 
 
+def _run_json_command(command: list[str]) -> dict[str, Any]:
+    try:
+        completed = subprocess.run(
+            command,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            timeout=20,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        raise SetupError("USB-Datenträger konnten nicht zuverlässig erkannt werden.") from exc
+    try:
+        decoded = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise SetupError("Ungültige Antwort der Datenträgererkennung.") from exc
+    if not isinstance(decoded, dict):
+        raise SetupError("Ungültige Antwort der Datenträgererkennung.")
+    return decoded
+
+
+def _first_mountpoint(node: dict[str, Any]) -> str | None:
+    raw = node.get("mountpoints")
+    if isinstance(raw, list):
+        for value in raw:
+            if isinstance(value, str) and value:
+                return value
+    value = node.get("mountpoint")
+    return value if isinstance(value, str) and value else None
+
+
+def list_usb_devices() -> list[dict[str, Any]]:
+    tree = _run_json_command([
+        "lsblk", "--json", "--bytes", "--paths",
+        "-o", "NAME,PATH,TYPE,SIZE,FSTYPE,LABEL,UUID,MOUNTPOINTS,RM,RO,TRAN,MODEL,VENDOR"
+    ])
+    supported = {"ext4", "ext3", "ext2", "exfat", "vfat", "ntfs", "ntfs3"}
+    devices: list[dict[str, Any]] = []
+
+    def walk(node: dict[str, Any], parent_usb: bool = False, parent_model: str = "") -> None:
+        transport = str(node.get("tran") or "").lower()
+        is_usb = parent_usb or transport == "usb"
+        model = str(node.get("model") or parent_model or "").strip()
+        node_type = str(node.get("type") or "")
+        fstype = str(node.get("fstype") or "").lower()
+        uuid = str(node.get("uuid") or "").strip()
+        path = str(node.get("path") or node.get("name") or "")
+
+        if is_usb and node_type in {"part", "disk"} and fstype and uuid and path:
+            size = node.get("size")
+            try:
+                size_bytes = int(size)
+            except (TypeError, ValueError):
+                size_bytes = 0
+            read_only = bool(node.get("ro"))
+            devices.append({
+                "uuid": uuid,
+                "path": path,
+                "label": str(node.get("label") or "").strip(),
+                "model": model,
+                "vendor": str(node.get("vendor") or "").strip(),
+                "size_bytes": size_bytes,
+                "fstype": fstype,
+                "mountpoint": _first_mountpoint(node),
+                "read_only": read_only,
+                "supported": (fstype in supported and not read_only),
+            })
+
+        children = node.get("children")
+        if isinstance(children, list):
+            for child in children:
+                if isinstance(child, dict):
+                    walk(child, is_usb, model)
+
+    blockdevices = tree.get("blockdevices")
+    if isinstance(blockdevices, list):
+        for entry in blockdevices:
+            if isinstance(entry, dict):
+                walk(entry)
+
+    devices.sort(key=lambda item: (item["label"] or item["model"], item["path"]))
+    return devices
+
+
+def _load_installation_state() -> dict[str, Any]:
+    if not STATE_FILE.exists():
+        raise SetupError("Bitte zuerst die Grundkonfiguration abschließen.")
+    try:
+        state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SetupError("Installationsstatus ist beschädigt.") from exc
+    if not isinstance(state, dict):
+        raise SetupError("Installationsstatus ist beschädigt.")
+    return state
+
+
+def _backup_device_by_uuid(uuid: str) -> dict[str, Any]:
+    if not isinstance(uuid, str) or len(uuid) > 128:
+        raise SetupError("Ungültige Datenträger-ID.")
+    for device in list_usb_devices():
+        if secrets.compare_digest(str(device["uuid"]), uuid):
+            return device
+    raise SetupError("Der ausgewählte USB-Datenträger wurde nicht gefunden.")
+
+
+def _safe_dir(parent: pathlib.Path, name: str) -> pathlib.Path:
+    target = parent / name
+    if target.is_symlink():
+        raise SetupError("Der vorgesehene Backup-Pfad enthält einen symbolischen Link und wird aus Sicherheitsgründen nicht verwendet.")
+    if target.exists() and not target.is_dir():
+        raise SetupError("Der vorgesehene Backup-Pfad wird bereits von einer Datei belegt.")
+    target.mkdir(mode=0o755, exist_ok=True)
+    return target
+
+
+def _write_json_exclusive(path: pathlib.Path, payload: dict[str, Any]) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    fd = os.open(path, flags, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    except Exception:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def _prepare_backup_folder(mountpoint: pathlib.Path, device: dict[str, Any], school_id: str) -> str:
+    root = mountpoint / "SchulIT-Ticketsystem"
+    root_marker = root / ".schulit-root.json"
+
+    if root.is_symlink():
+        raise SetupError("Der Ordner SchulIT-Ticketsystem ist ein symbolischer Link und wird nicht verwendet.")
+    if root.exists() and not root.is_dir():
+        raise SetupError("Auf dem USB-Stick existiert bereits eine Datei namens SchulIT-Ticketsystem.")
+
+    if root.exists() and not root_marker.exists():
+        try:
+            has_content = any(root.iterdir())
+        except OSError as exc:
+            raise SetupError("Der vorhandene Ordner SchulIT-Ticketsystem kann nicht geprüft werden.") from exc
+        if has_content:
+            raise SetupError(
+                "Auf dem USB-Stick gibt es bereits einen nicht von diesem System verwalteten Ordner "
+                "SchulIT-Ticketsystem. Aus Sicherheitsgründen wird darin nichts verändert."
+            )
+
+    if not root.exists():
+        root.mkdir(mode=0o755)
+
+    if not root_marker.exists():
+        _write_json_exclusive(root_marker, {
+            "format": "schulit-backup-root-v1",
+            "created_at": now_iso(),
+        })
+    else:
+        try:
+            marker = json.loads(root_marker.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SetupError("Der vorhandene SchulIT-Ticketsystem-Ordner hat keinen gültigen Verwaltungsmarker.") from exc
+        if not isinstance(marker, dict) or marker.get("format") != "schulit-backup-root-v1":
+            raise SetupError("Der vorhandene SchulIT-Ticketsystem-Ordner gehört nicht zu einem unterstützten Backupformat.")
+
+    backups = _safe_dir(root, "Backups")
+    school = backups / school_id
+    school_marker = school / ".schulit-school.json"
+
+    if school.is_symlink():
+        raise SetupError("Der schulbezogene Backup-Pfad ist ein symbolischer Link und wird nicht verwendet.")
+    if school.exists() and not school.is_dir():
+        raise SetupError("Der schulbezogene Backup-Pfad wird bereits von einer Datei belegt.")
+
+    if school.exists() and not school_marker.exists():
+        try:
+            has_content = any(school.iterdir())
+        except OSError as exc:
+            raise SetupError("Der vorhandene Schul-Backupordner kann nicht geprüft werden.") from exc
+        if has_content:
+            raise SetupError(
+                "Für diese Schulkennung existiert bereits ein nicht verwalteter Ordner. "
+                "Es werden keine vorhandenen Inhalte überschrieben."
+            )
+
+    if not school.exists():
+        school.mkdir(mode=0o755)
+
+    if not school_marker.exists():
+        _write_json_exclusive(school_marker, {
+            "format": "schulit-school-backup-v1",
+            "school_id": school_id,
+            "device_uuid": device["uuid"],
+            "created_at": now_iso(),
+        })
+    else:
+        try:
+            marker = json.loads(school_marker.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SetupError("Der vorhandene Schul-Backupordner hat keinen gültigen Marker.") from exc
+        if not isinstance(marker, dict) or marker.get("school_id") != school_id:
+            raise SetupError("Der vorhandene Backupordner gehört zu einer anderen Schulinstallation.")
+
+    _safe_dir(school, "archives")
+    _safe_dir(school, "manifests")
+    return f"SchulIT-Ticketsystem/Backups/{school_id}"
+
+
+def register_backup_device(uuid: str) -> dict[str, Any]:
+    state = _load_installation_state()
+    school_id = str(state.get("school_id") or "")
+    if SCHOOL_ID_RE.fullmatch(school_id) is None:
+        raise SetupError("Die gespeicherte Schulkennung ist ungültig.")
+
+    device = _backup_device_by_uuid(uuid)
+    if not bool(device.get("supported")):
+        raise SetupError("Dieser Datenträger ist schreibgeschützt oder verwendet ein noch nicht unterstütztes Dateisystem.")
+
+    mounted_here = False
+    temporary_mount = pathlib.Path("/run/schulit/backup-register")
+    mountpoint_value = device.get("mountpoint")
+    if isinstance(mountpoint_value, str) and mountpoint_value:
+        mountpoint = pathlib.Path(mountpoint_value)
+    else:
+        temporary_mount.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            subprocess.run(
+                ["mount", "-U", str(device["uuid"]), str(temporary_mount)],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=20,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            raise SetupError("Der USB-Datenträger konnte nicht vorübergehend eingehängt werden.") from exc
+        mountpoint = temporary_mount
+        mounted_here = True
+
+    try:
+        relative_path = _prepare_backup_folder(mountpoint, device, school_id)
+        try:
+            subprocess.run(["sync", "-f", str(mountpoint)], check=False, timeout=20)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+    finally:
+        if mounted_here:
+            try:
+                subprocess.run(["umount", str(temporary_mount)], check=True, timeout=20)
+            except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+                raise SetupError(
+                    "Der Backupordner wurde angelegt, aber der Datenträger konnte danach nicht sauber ausgehängt werden."
+                ) from exc
+            try:
+                temporary_mount.rmdir()
+            except OSError:
+                pass
+
+    config = {
+        "version": 1,
+        "device_uuid": device["uuid"],
+        "filesystem": device["fstype"],
+        "label": device["label"],
+        "model": device["model"],
+        "relative_path": relative_path,
+        "school_id": school_id,
+        "registered_at": now_iso(),
+    }
+    atomic_write(BACKUP_CONFIG, json.dumps(config, ensure_ascii=False, indent=2) + "\n", 0o600)
+    return {"ok": True, "backup": config}
+
+
+def get_backup_status() -> dict[str, Any]:
+    if not BACKUP_CONFIG.exists():
+        return {"ok": True, "configured": False}
+    try:
+        config = json.loads(BACKUP_CONFIG.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SetupError("Backup-Konfiguration ist beschädigt.") from exc
+    if not isinstance(config, dict):
+        raise SetupError("Backup-Konfiguration ist beschädigt.")
+    present = any(str(device["uuid"]) == str(config.get("device_uuid")) for device in list_usb_devices())
+    return {"ok": True, "configured": True, "present": present, "backup": config}
+
+
 def handle(request: dict[str, Any]) -> dict[str, Any]:
     action = request.get("action")
     if action == "status":
@@ -250,6 +539,15 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(payload, dict):
             raise SetupError("Ungültige Einrichtungsdaten.")
         return initialize(payload)
+    if action == "list_backup_devices":
+        return {"ok": True, "devices": list_usb_devices()}
+    if action == "register_backup_device":
+        uuid = request.get("uuid")
+        if not isinstance(uuid, str):
+            raise SetupError("Ungültige Datenträger-ID.")
+        return register_backup_device(uuid)
+    if action == "backup_status":
+        return get_backup_status()
     raise SetupError("Unbekannte Setup-Aktion.")
 
 
