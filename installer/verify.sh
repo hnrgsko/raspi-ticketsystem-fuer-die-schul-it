@@ -80,7 +80,7 @@ check "Setup-Seite erreichbar" curl --fail --silent --show-error http://127.0.0.
 check "Ticketsystem auf Port 8081 erreichbar" curl --fail --silent --show-error http://127.0.0.1:8081/
 check "Ticket-Admin erreichbar" curl --fail --silent --show-error http://127.0.0.1:8081/admin/
 if [[ -f /var/lib/schulit/setup/installation.json ]]; then
-  check "Anwendungsdatenbank über Web-Konfiguration erreichbar" runuser -u www-data -- php -r 'require "/opt/schulit/application/lib.php"; $db=app_database(); exit(app_tables_ready($db) ? 0 : 1);'
+  check "Anwendungsdatenbank über Web-Konfiguration erreichbar" runuser -u www-data -- php -r "require '/opt/schulit/application/lib.php'; \$db=app_database(); exit(app_tables_ready(\$db) ? 0 : 1);"
 fi
 check_setup_token
 check_app_token
