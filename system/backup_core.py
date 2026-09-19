@@ -924,3 +924,109 @@ def restore_backup(selection: dict[str, Any], recovery_code: str) -> dict[str, A
         "backup_created_at": str(manifest.get("created_at") or ""),
         "archive": archive_name,
     }
+
+
+def verify_restore_candidate(manifest_name: str, recovery_code: str) -> dict[str, Any]:
+    """Perform a complete read/decrypt/validate restore rehearsal without changing the live system."""
+    config = _load_json(BACKUP_CONFIG, "Backup-Konfiguration")
+    if pathlib.PurePosixPath(manifest_name).name != manifest_name or not manifest_name.endswith(".json"):
+        raise BackupError("Ungültiges Backup-Manifest.")
+
+    with MountedBackup(config) as mountpoint:
+        school_dir = _backup_school_dir(mountpoint, config)
+        manifest_path = school_dir / "manifests" / manifest_name
+        recovery_path = school_dir / "recovery" / "age-identity.json"
+
+        manifest = _load_json(manifest_path, "Backup-Manifest")
+        if manifest.get("format") != "schulit-backup-manifest-v1":
+            raise BackupError("Unbekanntes Backup-Manifest.")
+
+        school_id = str(manifest.get("school_id") or "")
+        if school_id != str(config.get("school_id") or ""):
+            raise BackupError("Backup-Manifest gehört zu einer anderen Schulinstallation.")
+
+        archive_name = str(manifest.get("archive") or "")
+        if pathlib.PurePosixPath(archive_name).name != archive_name or not archive_name.endswith(".age"):
+            raise BackupError("Ungültiger Archivname im Manifest.")
+
+        archive_path = school_dir / "archives" / archive_name
+        if not archive_path.is_file():
+            raise BackupError("Backup-Archiv fehlt.")
+
+        expected_hash = str(manifest.get("sha256") or "").lower()
+        actual_hash = _sha256_file(archive_path)
+        if len(expected_hash) != 64 or not secrets.compare_digest(actual_hash, expected_hash):
+            raise BackupError("SHA-256-Prüfung des Backup-Archivs ist fehlgeschlagen.")
+
+        identity = _unwrap_age_identity(recovery_path, recovery_code, school_id)
+
+        with tempfile.TemporaryDirectory(prefix="schulit-restore-test-", dir=str(RUN_DIR)) as tmpdir:
+            tmp = pathlib.Path(tmpdir)
+            identity_path = tmp / "identity.txt"
+            identity_path.write_bytes(identity)
+            os.chmod(identity_path, 0o600)
+
+            decrypted = tmp / "backup.tar.gz"
+            _run([
+                "age", "-d",
+                "-i", str(identity_path),
+                "-o", str(decrypted),
+                str(archive_path),
+            ], timeout=300)
+
+            payload = tmp / "payload"
+            _safe_extract_tar_gz(decrypted, payload)
+
+            payload_meta = _load_json(payload / "backup.json", "Backup-Inhaltsmanifest")
+            if payload_meta.get("format") != "schulit-backup-payload-v1":
+                raise BackupError("Unbekanntes Backup-Inhaltsformat.")
+            if str(payload_meta.get("school_id") or "") != school_id:
+                raise BackupError("Entschlüsseltes Backup gehört nicht zur ausgewählten Schulkennung.")
+
+            required = [
+                payload / "database.sql",
+                payload / "etc-schulit" / "app.php",
+                payload / "etc-schulit" / "backup.json",
+                payload / "etc-schulit" / "backup-crypto.json",
+                payload / "state" / "installation.json",
+                payload / "state" / "recovery.json",
+            ]
+            missing = [str(path.relative_to(payload)) for path in required if not path.is_file()]
+            if missing:
+                raise BackupError("Backup ist unvollständig. Fehlend: " + ", ".join(missing))
+
+            db_access = _read_database_access(payload / "etc-schulit" / "app.php")
+            if db_access["name"] != DB_NAME or db_access["user"] != DB_USER:
+                raise BackupError("Datenbankzugang im Backup ist nicht kompatibel.")
+
+            dump_path = payload / "database.sql"
+            if dump_path.stat().st_size < 128:
+                raise BackupError("Datenbankdump ist unerwartet klein.")
+            dump_head = dump_path.read_bytes()[:1024 * 1024]
+            if b"Database: schulit" not in dump_head and b"CREATE DATABASE" not in dump_head:
+                raise BackupError("Datenbankdump enthält keine erkennbare Schul-IT-Datenbank.")
+
+            restored_state = _load_json(payload / "state" / "installation.json", "Installationsstatus im Backup")
+            if str(restored_state.get("school_id") or "") != school_id:
+                raise BackupError("Installationsstatus im Backup passt nicht zur Schulkennung.")
+
+            uploads_present = (payload / "uploads").is_dir()
+
+    return {
+        "ok": True,
+        "verified": True,
+        "school_id": school_id,
+        "school_name": str(restored_state.get("school_name") or ""),
+        "admin_username": str(restored_state.get("admin_username") or ""),
+        "created_at": str(manifest.get("created_at") or ""),
+        "archive": archive_name,
+        "size_bytes": int(manifest.get("size_bytes") or 0),
+        "sha256": actual_hash,
+        "database_dump": True,
+        "configuration": True,
+        "recovery_key": True,
+        "decryption": True,
+        "safe_extract": True,
+        "uploads_present": uploads_present,
+        "live_system_modified": False,
+    }
