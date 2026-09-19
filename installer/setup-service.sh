@@ -5,6 +5,8 @@ require_root
 
 install -d -m 0755 /usr/local/lib/schulit
 install -o root -g root -m 0755 "${SCHULIT_SOURCE_ROOT}/system/setupd.py" /usr/local/lib/schulit/setupd.py
+install -o root -g root -m 0644 "${SCHULIT_SOURCE_ROOT}/system/backup_core.py" /usr/local/lib/schulit/backup_core.py
+install -o root -g root -m 0755 "${SCHULIT_SOURCE_ROOT}/system/backup_client.py" /usr/local/lib/schulit/backup_client.py
 
 install -d -m 0755 /opt/schulit/setup-migrations
 rsync -a --delete "${SCHULIT_SOURCE_ROOT}/database/migrations/" /opt/schulit/setup-migrations/
@@ -34,7 +36,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now schulit-setupd.service
+systemctl enable schulit-setupd.service >/dev/null
+systemctl restart schulit-setupd.service
 
 for _ in {1..20}; do
   [[ -S /run/schulit/setupd.sock ]] && break
