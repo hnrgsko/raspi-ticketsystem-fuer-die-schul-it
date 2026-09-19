@@ -164,6 +164,7 @@ Dokumentation:
 - [Phase 1 – Bootstrap und lokale Serverbasis](docs/PHASE-1-BOOTSTRAP.md)
 - [Phase 2 – Einrichtungsassistent](docs/PHASE-2-SETUP.md)
 - [Phase 3a – USB-Backupmedium registrieren](docs/PHASE-3-USB-BACKUP.md)
+- [Phase 3b – Verschlüsselte Backups](docs/PHASE-3B-ENCRYPTED-BACKUP.md)
 
 ### Phase 3a – auf Raspberry Pi 4 erfolgreich real getestet
 
@@ -182,6 +183,20 @@ Neu im Setup-Assistenten:
 Auf echter Hardware erfolgreich bestätigt: USB-Erkennung, Auswahl per UUID und nicht-destruktives Anlegen von `SchulIT-Ticketsystem/Backups/<Schulkennung>/` auf einem vorhandenen USB-Datenträger.
 
 Dokumentation: [Phase 3a – USB-Backupmedium registrieren](docs/PHASE-3-USB-BACKUP.md)
+
+### Phase 3b – implementiert, nächster Realtest
+
+Neu vorhanden:
+
+- Verschlüsselung mit `age`
+- Recovery-Code-geschützter privater Entschlüsselungsschlüssel
+- verschlüsseltes Vollbackup von Datenbank, Konfiguration, Status und Uploads
+- SHA-256-Manifest pro Backup
+- Button „Backup jetzt erstellen“
+- täglicher systemd-Backup-Timer
+- Timer wird erst nach erfolgreicher Verschlüsselung aktiviert
+
+Dokumentation: [Phase 3b – Verschlüsselte Backups](docs/PHASE-3B-ENCRYPTED-BACKUP.md)
 
 **Noch nicht für produktive Schuldaten verwenden.**
 Siehe auch:
