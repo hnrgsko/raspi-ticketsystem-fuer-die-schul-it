@@ -12,3 +12,5 @@ label{display:block;font-weight:720;margin-top:15px}input,textarea,select{width:
 .badge{display:inline-block;border-radius:999px;background:#edf1f5;padding:4px 9px;font-size:.82rem;font-weight:700}.high{background:#fee2e2}.done{background:#dcfce7}
 nav{display:flex;gap:12px;flex-wrap:wrap}nav a{color:#28313b;text-decoration:none;font-weight:650}.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.detail-grid>div{border:1px solid #e4e7eb;border-radius:11px;padding:12px}.key{font-size:.8rem;color:#69727d}.value{font-weight:700;margin-top:3px;white-space:pre-wrap}
 @media(max-width:760px){header{align-items:flex-start;flex-direction:column}.ticket-row{grid-template-columns:1fr}.shell{padding:18px 12px 48px}.card{padding:18px}}
+.login-card{max-width:520px;margin:40px auto}
+.filter-action{align-items:end}
