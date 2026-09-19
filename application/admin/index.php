@@ -285,7 +285,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 
 <div class="experimental-option">
   <label class="check-row"><input type="checkbox" name="assistant_widget_enabled" value="1"<?= ($assistant['widget_enabled'] ?? false) ? ' checked' : '' ?>> Schwebende Sprechblase aktivieren <span class="experimental-badge">Experimentell</span></label>
-  <p>Die Sprechblase öffnet den Assistenten direkt innerhalb der Supportseite. Diese Einbettung ist derzeit für <strong>AIS.chat-Dialogpartner</strong> vorgesehen und damit getestet. Für andere Assistenten bleibt der normale Link verfügbar.</p>
+  <p>Die Sprechblase öffnet den Assistenten direkt innerhalb der Supportseite. <strong>Getestet wurde die Einbettung bisher mit AIS.chat-Dialogpartnern.</strong> Andere HTTPS-Chats und Assistenten können ebenfalls verwendet werden, sofern der jeweilige Anbieter die Einbettung in einem iframe erlaubt.</p>
 </div>
 
 <p class="muted">Die Funktion ist schulindividuell. Der Raspberry-Pi-Installer bringt keine feste AIS.chat-Instanz mit.</p>
