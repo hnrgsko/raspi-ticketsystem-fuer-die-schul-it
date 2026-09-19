@@ -592,6 +592,15 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
             return backup_core.restore_backup(selection, code)
         except backup_core.BackupError as exc:
             raise SetupError(str(exc)) from exc
+    if action == "verify_restore_candidate":
+        manifest = request.get("manifest")
+        code = request.get("recovery_code")
+        if not isinstance(manifest, str) or not isinstance(code, str):
+            raise SetupError("Ungültige Testdaten.")
+        try:
+            return backup_core.verify_restore_candidate(manifest, code)
+        except backup_core.BackupError as exc:
+            raise SetupError(str(exc)) from exc
     raise SetupError("Unbekannte Setup-Aktion.")
 
 
