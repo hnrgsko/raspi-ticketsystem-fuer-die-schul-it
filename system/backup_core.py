@@ -416,6 +416,7 @@ def create_backup() -> dict[str, Any]:
             _dump_database(staging / "database.sql")
             _copy_if_exists(pathlib.Path("/etc/schulit/app.php"), staging / "etc-schulit" / "app.php")
             _copy_if_exists(pathlib.Path("/etc/schulit/system.conf"), staging / "etc-schulit" / "system.conf")
+            _copy_if_exists(pathlib.Path("/etc/schulit/access-token"), staging / "etc-schulit" / "access-token")
             _copy_if_exists(BACKUP_CONFIG, staging / "etc-schulit" / "backup.json")
             _copy_if_exists(BACKUP_CRYPTO, staging / "etc-schulit" / "backup-crypto.json")
             _copy_if_exists(BACKUP_RECIPIENT, staging / "etc-schulit" / "backup-recipient.txt")
@@ -881,6 +882,7 @@ def restore_backup(selection: dict[str, Any], recovery_code: str) -> dict[str, A
 
             _install_restored_file(app_config, pathlib.Path("/etc/schulit/app.php"), 0o640, "www-data")
             _install_restored_file(payload / "etc-schulit" / "system.conf", pathlib.Path("/etc/schulit/system.conf"), 0o640)
+            _install_restored_file(payload / "etc-schulit" / "access-token", pathlib.Path("/etc/schulit/access-token"), 0o640, "www-data")
             _install_restored_file(payload / "etc-schulit" / "backup.json", BACKUP_CONFIG, 0o600)
             _install_restored_file(payload / "etc-schulit" / "backup-crypto.json", BACKUP_CRYPTO, 0o600)
 
