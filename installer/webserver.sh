@@ -3,12 +3,24 @@ set -Eeuo pipefail
 source "${SCHULIT_SOURCE_ROOT}/installer/common.sh"
 require_root
 
-cat > /etc/apache2/conf-available/schulit-setup-listen.conf <<'EOF'
-Listen 8080
+setup_port=8080
+
+if [[ -f /etc/apache2/ports.conf && ! -f /etc/apache2/ports.conf.schulit-preinstall ]]; then
+  cp -a /etc/apache2/ports.conf /etc/apache2/ports.conf.schulit-preinstall
+fi
+
+cat > /etc/apache2/ports.conf <<'EOF'
+# Managed by Schul-IT Ticketsystem.
+# Public HTTP/HTTPS exposure is configured later by the setup assistant.
+# The setup listener is defined in schulit-setup-listen.conf.
 EOF
 
-cat > /etc/apache2/sites-available/schulit-setup.conf <<'EOF'
-<VirtualHost *:8080>
+cat > /etc/apache2/conf-available/schulit-setup-listen.conf <<EOF
+Listen ${setup_port}
+EOF
+
+cat > /etc/apache2/sites-available/schulit-setup.conf <<EOF
+<VirtualHost *:${setup_port}>
     ServerName schulit-setup.local
     DocumentRoot /opt/schulit/setup
 
@@ -28,22 +40,20 @@ cat > /etc/apache2/sites-available/schulit-setup.conf <<'EOF'
     Header always set Cache-Control "no-store"
     Header always set Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
 
-    ErrorLog ${APACHE_LOG_DIR}/schulit-setup-error.log
-
-    # Deliberately omit the query string so the bootstrap token is not written to access logs.
+    ErrorLog \${APACHE_LOG_DIR}/schulit-setup-error.log
     LogFormat "%h %l %u %t \"%m %U %H\" %>s %b" schulit_setup
-    CustomLog ${APACHE_LOG_DIR}/schulit-setup-access.log schulit_setup
+    CustomLog \${APACHE_LOG_DIR}/schulit-setup-access.log schulit_setup
 </VirtualHost>
 EOF
 
 a2enmod headers >/dev/null
 a2enconf schulit-setup-listen >/dev/null
 a2ensite schulit-setup >/dev/null
-
-# The Apache welcome page is not part of the product.
 a2dissite 000-default >/dev/null 2>&1 || true
+a2dissite default-ssl >/dev/null 2>&1 || true
 
 apache2ctl configtest
-systemctl reload apache2
+systemctl restart apache2
+systemctl enable apache2 >/dev/null
 
-info "Lokale Setup-Seite läuft auf Port 8080."
+info "Lokale Setup-Seite läuft auf Port ${setup_port}. Port 80/443 bleiben für andere Dienste frei."
