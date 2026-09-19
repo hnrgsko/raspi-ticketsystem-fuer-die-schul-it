@@ -105,6 +105,30 @@ if ($authorized && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'activate_backup_crypto') {
+            $recoveryCodeInput = trim((string)($_POST['recovery_code'] ?? ''));
+            if ($recoveryCodeInput === '') {
+                throw new RuntimeException('Bitte den Recovery-Code eingeben.');
+            }
+            schulit_setupd([
+                'action' => 'activate_backup_crypto',
+                'recovery_code' => $recoveryCodeInput,
+            ]);
+            $created = schulit_setupd(['action' => 'create_backup']);
+            $_SESSION['backup_message'] = 'Verschlüsselung eingerichtet und erstes Backup erfolgreich erstellt.';
+            $_SESSION['last_backup'] = is_array($created['last_backup'] ?? null) ? $created['last_backup'] : [];
+            header('Location: /?step=backup', true, 303);
+            exit;
+        }
+
+        if ($action === 'create_backup') {
+            $created = schulit_setupd(['action' => 'create_backup']);
+            $_SESSION['backup_message'] = 'Backup erfolgreich erstellt.';
+            $_SESSION['last_backup'] = is_array($created['last_backup'] ?? null) ? $created['last_backup'] : [];
+            header('Location: /?step=backup', true, 303);
+            exit;
+        }
+
         if ($action === 'skip_backup') {
             header('Location: /?step=done', true, 303);
             exit;
@@ -128,6 +152,8 @@ if ($initialized && !in_array($step, ['recovery', 'backup', 'done'], true)) {
 
 $backupDevices = [];
 $backupStatus = ['configured' => false];
+$backupMessage = is_string($_SESSION['backup_message'] ?? null) ? $_SESSION['backup_message'] : null;
+unset($_SESSION['backup_message']);
 if ($authorized && $initialized && $step === 'backup') {
     try {
         $devicesResponse = schulit_setupd(['action' => 'list_backup_devices']);
@@ -301,7 +327,14 @@ details{margin-top:24px;border-top:1px solid #e5e7eb;padding-top:16px}summary{cu
 <p class="sub">Wähle einen USB-Datenträger für automatische Sicherungen aus. Vorhandene Dateien bleiben vollständig erhalten. Das System formatiert oder leert den Datenträger nicht.</p>
 
 <?php if (($backupStatus['configured'] ?? false) === true): ?>
-<?php $configuredBackup = is_array($backupStatus['backup'] ?? null) ? $backupStatus['backup'] : []; ?>
+<?php
+$configuredBackup = is_array($backupStatus['backup'] ?? null) ? $backupStatus['backup'] : [];
+$encryptionConfigured = ($backupStatus['encryption_configured'] ?? false) === true;
+$lastBackup = is_array($backupStatus['last_backup'] ?? null) ? $backupStatus['last_backup'] : [];
+if (!$lastBackup && is_array($_SESSION['last_backup'] ?? null)) {
+    $lastBackup = $_SESSION['last_backup'];
+}
+?>
 <div class="note">
 <strong>Backupmedium eingerichtet ✓</strong><br>
 <?= schulit_escape((string)($configuredBackup['label'] ?: $configuredBackup['model'] ?: 'USB-Datenträger')) ?><br>
@@ -310,7 +343,38 @@ Ordner: <code><?= schulit_escape((string)($configuredBackup['relative_path'] ?? 
 Status: <?= (($backupStatus['present'] ?? false) === true) ? 'angeschlossen' : 'derzeit nicht angeschlossen' ?>
 </div>
 <div class="note"><strong>Wichtig:</strong> Es wurden keine vorhandenen Dateien verändert. Das System arbeitet nur im Ordner <code>SchulIT-Ticketsystem/</code>.</div>
-<div class="actions"><a class="button" href="/?step=done">Weiter</a></div>
+
+<?php if ($backupMessage !== null): ?>
+<div class="note"><strong><?= schulit_escape($backupMessage) ?></strong></div>
+<?php endif; ?>
+
+<?php if (!$encryptionConfigured): ?>
+<h3>Backup-Verschlüsselung aktivieren</h3>
+<p class="sub">Das Backup wird mit einem eigenen age-Schlüssel verschlüsselt. Der private Entschlüsselungsschlüssel wird nicht offen auf dem USB-Stick gespeichert, sondern mit deinem Recovery-Code geschützt.</p>
+<form method="post">
+<input type="hidden" name="csrf" value="<?= schulit_escape(schulit_csrf_token()) ?>">
+<input type="hidden" name="action" value="activate_backup_crypto">
+<label for="recovery_code_backup">Recovery-Code</label>
+<input id="recovery_code_backup" type="password" name="recovery_code" required autocomplete="off" placeholder="Recovery-Code eingeben">
+<div class="note warning">Für diese Testinstallation ist der Recovery-Code bereits einmal angezeigt worden. In einer späteren Produktivinstallation sollte er nur außerhalb des Raspberry Pi sicher aufbewahrt werden.</div>
+<div class="actions"><button type="submit">Verschlüsselung aktivieren & erstes Backup erstellen</button></div>
+</form>
+<?php else: ?>
+<div class="note"><strong>Backup-Verschlüsselung:</strong> aktiv ✓<br>Automatische tägliche Sicherung: vorbereitet/aktiviert</div>
+<?php if ($lastBackup): ?>
+<div class="summary">
+  <div><div class="key">Letztes Backup</div><div class="value"><?= schulit_escape((string)($lastBackup['created_at'] ?? '–')) ?></div></div>
+  <div><div class="key">Archiv</div><div class="value"><?= schulit_escape((string)($lastBackup['archive'] ?? '–')) ?></div></div>
+  <div><div class="key">Größe</div><div class="value"><?= schulit_escape(schulit_format_bytes((int)($lastBackup['size_bytes'] ?? 0))) ?></div></div>
+  <div><div class="key">Verschlüsselt</div><div class="value">ja ✓</div></div>
+</div>
+<?php endif; ?>
+<form method="post">
+<input type="hidden" name="csrf" value="<?= schulit_escape(schulit_csrf_token()) ?>">
+<input type="hidden" name="action" value="create_backup">
+<div class="actions"><button type="submit">Backup jetzt erstellen</button><a class="button secondary" href="/?step=done">Weiter</a></div>
+</form>
+<?php endif; ?>
 
 <?php else: ?>
 <?php if (!$backupDevices): ?>
@@ -377,7 +441,9 @@ try {
 }
 ?>
 <?php if (($doneBackupStatus['configured'] ?? false) === true): ?>
-<div class="note"><strong>USB-Backupmedium:</strong> eingerichtet ✓</div>
+<div class="note"><strong>USB-Backupmedium:</strong> eingerichtet ✓<br>
+Backup-Verschlüsselung: <?= (($doneBackupStatus['encryption_configured'] ?? false) === true) ? 'aktiv ✓' : 'noch nicht aktiviert' ?></div>
+<div class="actions"><a class="button secondary" href="/?step=backup">Backup verwalten</a></div>
 <?php else: ?>
 <div class="note"><strong>Nächster Schritt:</strong> USB-Backupmedium erkennen und registrieren. Vorhandene Daten auf dem Stick bleiben erhalten.</div>
 <div class="actions"><a class="button" href="/?step=backup">USB-Backup einrichten</a></div>
