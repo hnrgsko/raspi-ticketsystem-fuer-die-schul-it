@@ -133,7 +133,20 @@ $csrf = $authorized ? app_csrf($_SESSION) : '';
 <?php elseif ($type === ''): ?>
 <section class="card">
 <h1>Wie können wir helfen?</h1>
+<?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?>
+<p class="muted">Nutze zuerst den <?= app_escape((string)$assistant['label']) ?> für eine direkte Hilfestellung. Wenn dein Problem damit nicht gelöst wird, kannst du anschließend ein Ticket aufgeben.</p>
+<section class="assistant-intro" aria-labelledby="assistant-title">
+  <span class="label">Empfohlener erster Schritt</span>
+  <h2 id="assistant-title"><?= app_escape((string)$assistant['label']) ?> fragen</h2>
+  <p>Beschreibe dein Problem möglichst konkret. Der Assistent kann dir direkt bei typischen Fragen zu Anwendungen, Geräten oder Zugängen helfen.</p>
+  <a class="button assistant-start" href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer">KI-Assistent starten</a>
+  <p class="assistant-disclosure"><strong>Hinweis:</strong> KI kann Fehler machen. Prüfe Antworten vor der Verwendung und gib keine Passwörter oder unnötigen personenbezogenen Daten ein.</p>
+</section>
+<h2 class="ticket-alternative-title">Problem nicht gelöst?</h2>
+<p class="muted">Dann melde dein Anliegen direkt an die Schul-IT.</p>
+<?php else: ?>
 <p class="muted">Wähle, ob du Hilfe bei einem IT-Problem brauchst oder einen Defekt melden möchtest.</p>
+<?php endif; ?>
 <div class="grid">
   <div class="choice">
     <h2>Hilfe / Problem</h2>
