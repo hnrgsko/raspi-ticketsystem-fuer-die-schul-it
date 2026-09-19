@@ -202,7 +202,13 @@ $message = is_string($_SESSION['admin_notice'] ?? null) ? $_SESSION['admin_notic
 unset($_SESSION['admin_notice']);
 
 $categories = ($user !== null && $db instanceof PDO) ? app_admin_category_list($db) : [];
-$assistant = ($db instanceof PDO) ? app_assistant_settings($db) : ['enabled'=>false,'label'=>'KI-Assistent','url'=>''];
+$assistant = ($db instanceof PDO) ? app_assistant_settings($db) : [
+    'enabled'=>false,
+    'label'=>'KI-Assistent',
+    'url'=>'',
+    'widget_enabled'=>false,
+    'widget_url'=>null,
+];
 $ticketId = is_string($_GET['ticket'] ?? null) ? $_GET['ticket'] : '';
 $detail = ($user !== null && $db instanceof PDO && $ticketId !== '' && $section === '')
     ? app_admin_ticket($db, $ticketId) : null;
@@ -276,6 +282,12 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <input id="assistant_label" name="assistant_label" maxlength="80" required value="<?= app_escape((string)($assistant['label'] ?? 'KI-Assistent')) ?>" placeholder="z. B. gsKI">
 <label for="assistant_url">URL des Assistenten</label>
 <input id="assistant_url" name="assistant_url" type="url" maxlength="2048" value="<?= app_escape((string)($assistant['url'] ?? '')) ?>" placeholder="https://…">
+
+<div class="experimental-option">
+  <label class="check-row"><input type="checkbox" name="assistant_widget_enabled" value="1"<?= ($assistant['widget_enabled'] ?? false) ? ' checked' : '' ?>> Schwebende Sprechblase aktivieren <span class="experimental-badge">Experimentell</span></label>
+  <p>Die Sprechblase öffnet den Assistenten direkt innerhalb der Supportseite. Diese Einbettung ist derzeit für <strong>AIS.chat-Dialogpartner</strong> vorgesehen und damit getestet. Für andere Assistenten bleibt der normale Link verfügbar.</p>
+</div>
+
 <p class="muted">Die Funktion ist schulindividuell. Der Raspberry-Pi-Installer bringt keine feste AIS.chat-Instanz mit.</p>
 <button type="submit">Assistenten-Einstellungen speichern</button>
 </form>
