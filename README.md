@@ -246,3 +246,19 @@ Siehe auch:
 - [Produkt- und Installationskonzept](docs/PRODUKTKONZEPT.md)
 - [Update-Service](docs/UPDATE-SERVICE.md)
 - [Technische Zielarchitektur v1](docs/TECHNISCHE-ZIELARCHITEKTUR.md)
+
+
+### Phase 4a.1 – UI-Parität und optionaler KI-Assistent
+
+Implementiert, nächster Realtest:
+
+- GSK-nahe Admin-Ticketübersicht
+- Suche, Filter und Sortierung
+- Schnellaktionen direkt in der Ticketliste
+- responsive mobile Kartenansicht
+- sichtbares Archiv
+- optionaler schulindividueller KI-Assistent
+- bei Aktivierung als empfohlener erster Schritt vor der Ticketabgabe
+- experimentelle schwebende Sprechblase für AIS.chat-Dialogpartner
+
+Dokumentation: [Phase 4a.1 – UI-Parität und optionaler KI-Assistent](docs/PHASE-4A1-UI-PARITY.md)
