@@ -184,7 +184,7 @@ Auf echter Hardware erfolgreich bestätigt: USB-Erkennung, Auswahl per UUID und 
 
 Dokumentation: [Phase 3a – USB-Backupmedium registrieren](docs/PHASE-3-USB-BACKUP.md)
 
-### Phase 3b – implementiert, nächster Realtest
+### Phase 3b – auf Raspberry Pi 4 erfolgreich real getestet
 
 Neu vorhanden:
 
@@ -195,6 +195,8 @@ Neu vorhanden:
 - Button „Backup jetzt erstellen“
 - täglicher systemd-Backup-Timer
 - Timer wird erst nach erfolgreicher Verschlüsselung aktiviert
+
+Auf echter Hardware erfolgreich bestätigt: Recovery-Code-geschützte Backup-Verschlüsselung, Erzeugung eines `.tar.gz.age`-Archivs, Manifest/Statusanzeige und aktivierter täglicher Backup-Timer.
 
 Dokumentation: [Phase 3b – Verschlüsselte Backups](docs/PHASE-3B-ENCRYPTED-BACKUP.md)
 
