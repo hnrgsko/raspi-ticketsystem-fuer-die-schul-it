@@ -252,7 +252,7 @@ $assistantWidgetActive = $authorized
       </div>
       <button type="button" id="assistant-widget-close" class="secondary" hidden>Schließen</button>
     </div>
-    <p class="assistant-widget-note">Eingebettete Darstellung für AIS.chat-Dialogpartner. KI kann Fehler machen. Keine Passwörter oder unnötigen personenbezogenen Daten eingeben.</p>
+    <p class="assistant-widget-note">Experimentelle eingebettete Darstellung. Getestet wurde sie bisher mit AIS.chat-Dialogpartnern; andere Dienste funktionieren nur, wenn sie iframe-Einbettung erlauben. KI kann Fehler machen. Keine Passwörter oder unnötigen personenbezogenen Daten eingeben.</p>
     <div id="assistant-widget-frame" data-chat-url="<?= app_escape((string)$assistant['widget_url']) ?>"></div>
     <noscript><p>Für die eingebettete Sprechblase ist JavaScript erforderlich. Der Assistent kann weiterhin über den normalen Link geöffnet werden.</p></noscript>
   </section>
