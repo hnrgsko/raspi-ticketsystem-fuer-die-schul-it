@@ -259,6 +259,6 @@ Implementiert, nächster Realtest:
 - sichtbares Archiv
 - optionaler schulindividueller KI-Assistent
 - bei Aktivierung als empfohlener erster Schritt vor der Ticketabgabe
-- experimentelle schwebende Sprechblase für AIS.chat-Dialogpartner
+- experimentelle schwebende Sprechblase für HTTPS-Assistenten; bisher mit AIS.chat-Dialogpartnern getestet
 
 Dokumentation: [Phase 4a.1 – UI-Parität und optionaler KI-Assistent](docs/PHASE-4A1-UI-PARITY.md)
