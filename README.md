@@ -130,24 +130,41 @@ Die schulneutrale, portable Raspberry-Pi-Version wird ausschließlich in diesem 
 
 ## Aktueller Entwicklungsstand
 
-### Technische Phase 1 – implementiert, noch nicht auf Referenzhardware freigegeben
+### Phase 1 – auf Raspberry Pi 4 erfolgreich real getestet
+
+Bestätigt auf echter Hardware:
+
+- Raspberry Pi OS 64-bit auf microSD
+- Apache/PHP/MariaDB-Installation
+- vorhandener Port-80-Dienst wird nicht verdrängt
+- lokaler Setup-Port 8080
+- token-geschützter Browserzugang
+- automatische Health-Checks
+
+Der Raspberry Pi 3 bleibt die geplante Mindest-/Referenzplattform und wird später separat gegengeprüft.
+
+### Phase 2 – implementiert, nächster Realtest
 
 Im Repository vorhanden:
 
-- `install.sh` als gemeinsamer Bootstrap für lokalen und späteren Ein-Befehl-Weg
-- Raspberry-Pi-/OS-/arm64-Systemprüfung
-- automatische Installation von Apache, PHP und MariaDB
-- FHS-nahe Verzeichnisstruktur
-- MariaDB ausschließlich lokal gebunden
-- mDNS/Avahi für lokale Erreichbarkeit
-- token-geschützte lokale Setup-Webseite auf Port 8080
-- Health-Checks nach der Installation
-- CI-Prüfung für Shell- und PHP-Syntax
+- Auswahl „Neue Installation“ / „Aus Backup wiederherstellen“
+- Eingabe von Schulname und Schulnummer/Schulkennung
+- erster System-Administrator
+- Rollenbasis `system_admin` und `ticket_admin`
+- lokale MariaDB-Anwendungsdatenbank
+- eigener lokaler privilegierter `schulit-setupd`-Dienst über Unix-Socket
+- Recovery-Code mit Schulkennung + kryptografischem Zufallsanteil
+- Speicherung nur eines scrypt-Prüfwerts des Recovery-Codes
+- Setup-CSRF-Schutz und serverseitige Validierung
 
-Dokumentation: [Phase 1 – Bootstrap und lokale Serverbasis](docs/PHASE-1-BOOTSTRAP.md)
+Die echte Backup-Wiederherstellung ist im Assistenten bereits vorgesehen, wird aber erst mit dem USB-Backupformat aktiviert.
 
-**Noch nicht für produktive Schuldaten verwenden.** Der nächste Schritt ist ein kontrollierter Test auf einem frisch installierten Raspberry Pi 3 mit Raspberry Pi OS 64-bit und microSD. Erst danach folgen Ticketdatenbank, Wiederherstellung, USB-Backup, Domain/Tunnel und die schulneutrale Anwendung.
+Dokumentation:
 
+- [Phase 1 – Bootstrap und lokale Serverbasis](docs/PHASE-1-BOOTSTRAP.md)
+- [Phase 2 – Einrichtungsassistent](docs/PHASE-2-SETUP.md)
+
+**Noch nicht für produktive Schuldaten verwenden.**
 Siehe auch:
 
 - [Produkt- und Installationskonzept](docs/PRODUKTKONZEPT.md)
