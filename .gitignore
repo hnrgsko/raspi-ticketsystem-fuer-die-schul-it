@@ -1,0 +1,19 @@
+# Local development
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# Secrets / generated installation state
+private/
+secrets/
+*.key
+*.pem
+
+# Build / release output
+dist/
+build/
+*.deb
+*.tar.gz
+*.tar.zst
