@@ -236,7 +236,7 @@ Neu vorhanden:
 - ausstehende Datenbankmigrationen bei Installer-Updates
 - Kollegiums-Zugangstoken wird verschlüsselt mitgesichert
 
-Ticketanlage und Statusabfrage auf echter Hardware erfolgreich bestätigt. Offen für den vollständigen Phase-4a-Test sind noch Admin-Login, Status/Priorität, interne Notiz und Archivierung.
+Ticketanlage, Statusabfrage, Admin-Login, Statusänderung und interne Notizen auf echter Hardware erfolgreich bestätigt. Offen für den vollständigen Phase-4a-Test ist nur noch der Archiv-Workflow.
 
 Dokumentation: [Phase 4a – Lokales Ticketsystem](docs/PHASE-4A-LOCAL-TICKETS.md)
 
