@@ -490,7 +490,7 @@ Status: <?= (($backupStatus['present'] ?? false) === true) ? 'angeschlossen' : '
 <label for="manifest">Backup auswählen</label>
 <select id="manifest" name="manifest" required style="width:100%;padding:12px 13px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;margin-top:7px">
 <?php foreach ($availableBackups as $backupItem): ?>
-<option value="<?= schulit_escape((string)($backupItem['archive'] ?? '')) ?>">
+<option value="<?= schulit_escape((string)($backupItem['manifest'] ?? '')) ?>">
 <?= schulit_escape((string)($backupItem['created_at'] ?? 'Backup')) ?> · <?= schulit_escape((string)($backupItem['archive'] ?? '')) ?>
 </option>
 <?php endforeach; ?>
