@@ -762,7 +762,7 @@ def _restore_database(payload: pathlib.Path, db_access: dict[str, Any]) -> None:
     # application database so a previously interrupted restore can be retried.
     _run(
         ["mariadb", "--protocol=socket"],
-        input_bytes=f"DROP DATABASE IF EXISTS \`{DB_NAME}\`;\n".encode("utf-8"),
+        input_bytes=f"DROP DATABASE IF EXISTS `{DB_NAME}`;\n".encode("utf-8"),
         timeout=60,
     )
 
