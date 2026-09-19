@@ -53,14 +53,24 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $ticketId = (string)($_POST['ticket_id'] ?? '');
             app_admin_update_ticket($db, $ticketId, (string)$user['id'], $_POST);
             $message = 'Ticket wurde aktualisiert.';
-            header('Location: /admin/?ticket=' . rawurlencode($ticketId) . '&saved=1', true, 303);
+            $returnView = (string)($_POST['return_view'] ?? '');
+            $target = '/admin/?ticket=' . rawurlencode($ticketId) . '&saved=1';
+            if ($returnView === 'archive') {
+                $target .= '&view=archive';
+            }
+            header('Location: ' . $target, true, 303);
             exit;
         }
 
         if ($action === 'archive_ticket' || $action === 'restore_ticket') {
             $ticketId = (string)($_POST['ticket_id'] ?? '');
-            app_admin_archive($db, $ticketId, $action === 'archive_ticket');
-            header('Location: /admin/?ticket=' . rawurlencode($ticketId) . '&saved=1', true, 303);
+            $archive = $action === 'archive_ticket';
+            app_admin_archive($db, $ticketId, $archive);
+            $target = '/admin/?ticket=' . rawurlencode($ticketId) . '&saved=1';
+            if ($archive) {
+                $target .= '&view=archive';
+            }
+            header('Location: ' . $target, true, 303);
             exit;
         }
 
@@ -83,6 +93,7 @@ $filters = [
     'priority' => is_string($_GET['priority'] ?? null) ? $_GET['priority'] : '',
     'view' => is_string($_GET['view'] ?? null) ? $_GET['view'] : '',
 ];
+$currentView = $filters['view'] === 'archive' ? 'archive' : '';
 $tickets = ($user !== null && $db instanceof PDO && $detail === null) ? app_admin_tickets($db, $filters) : [];
 ?><!doctype html>
 <html lang="de">
@@ -97,13 +108,20 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null) ? app_admi
 <header>
   <div><div class="brand">Ticket-Admin</div><div class="school"><?= app_escape($schoolName) ?></div></div>
   <?php if ($user !== null): ?>
-  <nav><a href="/admin/">Tickets</a><a href="/">Kollegiumsseite</a>
+  <nav><a href="/admin/">Aktive Tickets</a><a href="/admin/?view=archive">Archiv</a><a href="/">Kollegiumsseite</a>
   <?php if (($user['role'] ?? '') === 'system_admin'): ?><span class="badge">System-Admin</span><?php else: ?><span class="badge">Ticket-Admin</span><?php endif; ?></nav>
   <?php endif; ?>
 </header>
 
 <?php if ($error !== ''): ?><div class="card error"><strong>Fehler:</strong> <?= app_escape($error) ?></div><?php endif; ?>
 <?php if ($message !== ''): ?><div class="card success"><?= app_escape($message) ?></div><?php endif; ?>
+
+<?php if ($user !== null): ?>
+<div class="admin-tabs">
+  <a class="admin-tab<?= $currentView === '' ? ' active' : '' ?>" href="/admin/">Aktive Tickets</a>
+  <a class="admin-tab<?= $currentView === 'archive' ? ' active' : '' ?>" href="/admin/?view=archive">Archiv</a>
+</div>
+<?php endif; ?>
 
 <?php if (!$db instanceof PDO): ?>
 <section class="card"><h1>System nicht bereit</h1><p class="muted">Die lokale Anwendungsdatenbank ist noch nicht verfügbar.</p></section>
@@ -124,7 +142,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null) ? app_admi
 
 <?php elseif ($detail !== null): ?>
 <section class="card">
-<div class="actions"><a class="button secondary" href="/admin/">← Zur Ticketliste</a></div>
+<div class="actions"><a class="button secondary" href="<?= $detail['archived_at'] !== null ? '/admin/?view=archive' : '/admin/' ?>">← <?= $detail['archived_at'] !== null ? 'Zum Archiv' : 'Zur Ticketliste' ?></a></div>
 <h1><?= app_escape(app_ticket_number((string)$detail['id'])) ?></h1>
 <div class="detail-grid">
 <div><div class="key">Meldende Person</div><div class="value"><?= app_escape((string)$detail['reporter_name']) ?> (<?= app_escape((string)$detail['reporter_abbreviation']) ?>)</div></div>
@@ -150,6 +168,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null) ? app_admi
 <input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
 <input type="hidden" name="action" value="update_ticket">
 <input type="hidden" name="ticket_id" value="<?= app_escape((string)$detail['id']) ?>">
+<input type="hidden" name="return_view" value="<?= $detail['archived_at'] !== null ? 'archive' : '' ?>">
 <div class="grid">
 <div><label for="status">Status</label>
 <select id="status" name="status">
@@ -193,21 +212,22 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null) ? app_admi
 
 <?php else: ?>
 <section class="card">
-<h1>Tickets</h1>
+<h1><?= $currentView === 'archive' ? 'Archiv' : 'Aktive Tickets' ?></h1>
+<p class="muted"><?= $currentView === 'archive' ? 'Hier findest du archivierte, erledigte Tickets.' : 'Hier findest du alle aktuell nicht archivierten Tickets.' ?></p>
 <form method="get" class="grid">
+<input type="hidden" name="view" value="<?= app_escape($currentView) ?>">
 <div><label for="status">Status</label><select id="status" name="status"><option value="">Alle</option>
 <?php foreach (['new'=>'Neu','in_progress'=>'In Bearbeitung','awaiting_reply'=>'Rückfrage','done'=>'Erledigt'] as $value=>$label): ?><option value="<?= $value ?>"<?= $filters['status']===$value?' selected':'' ?>><?= $label ?></option><?php endforeach; ?>
 </select></div>
 <div><label for="priority">Priorität</label><select id="priority" name="priority"><option value="">Alle</option>
 <?php foreach (['low'=>'Niedrig','normal'=>'Normal','high'=>'Hoch'] as $value=>$label): ?><option value="<?= $value ?>"<?= $filters['priority']===$value?' selected':'' ?>><?= $label ?></option><?php endforeach; ?>
 </select></div>
-<div><label for="view">Ansicht</label><select id="view" name="view"><option value="">Aktiv</option><option value="archive"<?= $filters['view']==='archive'?' selected':'' ?>>Archiv</option></select></div>
 <div class="actions filter-action"><button type="submit">Filtern</button></div>
 </form>
 
 <?php if ($tickets === []): ?><div class="notice">Keine Tickets in dieser Ansicht.</div><?php endif; ?>
 <?php foreach ($tickets as $ticket): ?>
-<a href="/admin/?ticket=<?= rawurlencode((string)$ticket['id']) ?>" style="color:inherit;text-decoration:none">
+<a href="/admin/?ticket=<?= rawurlencode((string)$ticket['id']) ?><?= $currentView === 'archive' ? '&view=archive' : '' ?>" style="color:inherit;text-decoration:none">
 <div class="ticket ticket-row">
 <strong><?= app_escape(app_ticket_number((string)$ticket['id'])) ?></strong>
 <span><?= app_escape((string)$ticket['reporter_name']) ?> (<?= app_escape((string)$ticket['reporter_abbreviation']) ?>)</span>
