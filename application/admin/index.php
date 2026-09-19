@@ -109,7 +109,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null) ? app_admi
 <section class="card"><h1>System nicht bereit</h1><p class="muted">Die lokale Anwendungsdatenbank ist noch nicht verfügbar.</p></section>
 
 <?php elseif ($user === null): ?>
-<section class="card" style="max-width:520px;margin:40px auto">
+<section class="card login-card">
 <h1>Admin-Anmeldung</h1>
 <p class="muted">Melde dich mit dem im Einrichtungsassistenten angelegten Administratorkonto an.</p>
 <form method="post">
@@ -202,7 +202,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null) ? app_admi
 <?php foreach (['low'=>'Niedrig','normal'=>'Normal','high'=>'Hoch'] as $value=>$label): ?><option value="<?= $value ?>"<?= $filters['priority']===$value?' selected':'' ?>><?= $label ?></option><?php endforeach; ?>
 </select></div>
 <div><label for="view">Ansicht</label><select id="view" name="view"><option value="">Aktiv</option><option value="archive"<?= $filters['view']==='archive'?' selected':'' ?>>Archiv</option></select></div>
-<div class="actions" style="align-items:end"><button type="submit">Filtern</button></div>
+<div class="actions filter-action"><button type="submit">Filtern</button></div>
 </form>
 
 <?php if ($tickets === []): ?><div class="notice">Keine Tickets in dieser Ansicht.</div><?php endif; ?>
