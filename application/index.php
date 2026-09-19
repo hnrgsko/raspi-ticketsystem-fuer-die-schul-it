@@ -17,6 +17,7 @@ $ready = false;
 $db = null;
 $schoolName = 'Schul-IT Ticketsystem';
 $schoolId = '';
+$assistant = ['enabled'=>false,'label'=>'KI-Assistent','url'=>''];
 
 try {
     $db = app_database();
@@ -24,6 +25,7 @@ try {
     if ($ready) {
         $schoolName = app_setting($db, 'school_name', $schoolName);
         $schoolId = app_setting($db, 'school_id');
+        $assistant = app_assistant_settings($db);
     }
 } catch (Throwable $caught) {
     $error = $caught->getMessage();
@@ -90,7 +92,7 @@ $csrf = $authorized ? app_csrf($_SESSION) : '';
     <div class="brand">Schul-IT Ticketsystem</div>
     <div class="school"><?= app_escape($schoolName) ?></div>
   </div>
-  <?php if ($authorized): ?><nav><a href="/">Tickets</a><a href="/admin/">Admin</a></nav><?php endif; ?>
+  <?php if ($authorized): ?><nav><a href="/">Tickets</a><?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?></nav><?php endif; ?>
 </header>
 
 <?php if (!$authorized): ?>
