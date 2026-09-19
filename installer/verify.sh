@@ -36,6 +36,8 @@ check "Apache-Konfiguration" apache2ctl configtest
 check "Apache läuft" systemctl is-active apache2
 check "MariaDB läuft" systemctl is-active mariadb
 check "MariaDB lokal erreichbar" mariadb --protocol=socket -e "SELECT 1;"
+check "Setup-Systemdienst läuft" systemctl is-active schulit-setupd.service
+check "Setup-Systemsocket vorhanden" test -S /run/schulit/setupd.sock
 check "PHP CLI verfügbar" php -v
 check "PDO MySQL geladen" php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);'
 check "mbstring geladen" php -r 'exit(extension_loaded("mbstring") ? 0 : 1);'
@@ -53,7 +55,7 @@ apache_version="$(apache2ctl -v | awk -F': ' '/Server version/ {print $2}')"
 
 tmp="$(mktemp)"
 jq -n   --arg install_version "${SCHULIT_INSTALL_VERSION:-0.1.0-dev}"   --arg php "${php_version}"   --arg mariadb "${mariadb_version}"   --arg apache "${apache_version}"   --arg verified_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"   '{
-    phase: 1,
+    phase: 2,
     install_version: $install_version,
     php: $php,
     mariadb: $mariadb,
