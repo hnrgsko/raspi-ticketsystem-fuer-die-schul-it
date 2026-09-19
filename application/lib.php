@@ -119,11 +119,20 @@ function app_setting_bool(PDO $db, string $key, bool $fallback = false): bool
 
 function app_assistant_widget_url(mixed $value): ?string
 {
-    if (!is_string($value) || strlen($value) > 1000) return null;
-    return preg_match(
-        '~\Ahttps://app\.ais-chat\.schule/ua/characters/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/dialog\?inviteCode=[A-Za-z0-9_-]{1,128}\z~D',
-        $value
-    ) === 1 ? $value : null;
+    if (!is_string($value) || strlen($value) > 2048) return null;
+    $value = trim($value);
+    if ($value === '' || filter_var($value, FILTER_VALIDATE_URL) === false) return null;
+
+    $scheme = strtolower((string) parse_url($value, PHP_URL_SCHEME));
+    $host = (string) parse_url($value, PHP_URL_HOST);
+    $user = parse_url($value, PHP_URL_USER);
+    $pass = parse_url($value, PHP_URL_PASS);
+
+    // Embedded third-party content is permitted only via HTTPS and without
+    // credentials in the URL. Individual providers may still block framing.
+    if ($scheme !== 'https' || $host === '' || $user !== null || $pass !== null) return null;
+
+    return $value;
 }
 
 function app_assistant_settings(PDO $db): array
@@ -162,7 +171,7 @@ function app_admin_save_assistant_settings(PDO $db, array $input): void
         throw new InvalidArgumentException('Die experimentelle Sprechblase kann nur zusammen mit dem KI-Assistenten aktiviert werden.');
     }
     if ($widgetEnabled && app_assistant_widget_url($url) === null) {
-        throw new InvalidArgumentException('Die experimentelle Sprechblase unterstützt derzeit AIS.chat-Dialogpartner-Links.');
+        throw new InvalidArgumentException('Für die experimentelle Sprechblase wird eine gültige HTTPS-URL ohne eingebettete Zugangsdaten benötigt.');
     }
 
     $values = [
