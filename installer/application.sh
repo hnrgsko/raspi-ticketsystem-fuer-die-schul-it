@@ -59,7 +59,7 @@ cat > /etc/apache2/sites-available/schulit-app.conf <<'EOF'
     Header always set X-Frame-Options "DENY"
     Header always set Referrer-Policy "no-referrer"
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
-    Header always set Content-Security-Policy "default-src 'self'; style-src 'self'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src https://app.ais-chat.schule; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
 
     ErrorLog ${APACHE_LOG_DIR}/schulit-app-error.log
 
