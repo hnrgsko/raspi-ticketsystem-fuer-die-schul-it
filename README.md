@@ -165,6 +165,7 @@ Dokumentation:
 - [Phase 2 – Einrichtungsassistent](docs/PHASE-2-SETUP.md)
 - [Phase 3a – USB-Backupmedium registrieren](docs/PHASE-3-USB-BACKUP.md)
 - [Phase 3b – Verschlüsselte Backups](docs/PHASE-3B-ENCRYPTED-BACKUP.md)
+- [Phase 3c – Wiederherstellung](docs/PHASE-3C-RESTORE.md)
 
 ### Phase 3a – auf Raspberry Pi 4 erfolgreich real getestet
 
@@ -199,6 +200,21 @@ Neu vorhanden:
 Auf echter Hardware erfolgreich bestätigt: Recovery-Code-geschützte Backup-Verschlüsselung, Erzeugung eines `.tar.gz.age`-Archivs, Manifest/Statusanzeige und aktivierter täglicher Backup-Timer.
 
 Dokumentation: [Phase 3b – Verschlüsselte Backups](docs/PHASE-3B-ENCRYPTED-BACKUP.md)
+
+### Phase 3c – implementiert, nächster Realtest
+
+Neu vorhanden:
+
+- frische Installation kann USB-Backups ohne vorhandene Schulkonfiguration finden
+- Auswahl vorhandener Backupstände
+- SHA-256-Prüfung vor der Wiederherstellung
+- Recovery-Code-basierte Entschlüsselung des privaten age-Schlüssels
+- sichere Entschlüsselung und Archivprüfung
+- Wiederherstellung von Datenbank, Schulkonfiguration, Adminstatus, Backupkonfiguration und Uploads
+- erneute Aktivierung des automatischen Backup-Timers
+- Schutz gegen versehentliches Überschreiben einer bereits eingerichteten Installation
+
+Dokumentation: [Phase 3c – Wiederherstellung](docs/PHASE-3C-RESTORE.md)
 
 **Noch nicht für produktive Schuldaten verwenden.**
 Siehe auch:
