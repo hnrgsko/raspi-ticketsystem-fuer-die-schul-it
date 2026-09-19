@@ -128,9 +128,25 @@ Es wird im Rahmen dieses Projekts nicht verändert.
 
 Die schulneutrale, portable Raspberry-Pi-Version wird ausschließlich in diesem Repository entwickelt.
 
-## Status
+## Aktueller Entwicklungsstand
 
-Aktuell: Produktarchitektur und Installationsweg werden festgelegt. Noch keine produktive Installation aus diesem Repository durchführen.
+### Technische Phase 1 – implementiert, noch nicht auf Referenzhardware freigegeben
+
+Im Repository vorhanden:
+
+- `install.sh` als gemeinsamer Bootstrap für lokalen und späteren Ein-Befehl-Weg
+- Raspberry-Pi-/OS-/arm64-Systemprüfung
+- automatische Installation von Apache, PHP und MariaDB
+- FHS-nahe Verzeichnisstruktur
+- MariaDB ausschließlich lokal gebunden
+- mDNS/Avahi für lokale Erreichbarkeit
+- token-geschützte lokale Setup-Webseite auf Port 8080
+- Health-Checks nach der Installation
+- CI-Prüfung für Shell- und PHP-Syntax
+
+Dokumentation: [Phase 1 – Bootstrap und lokale Serverbasis](docs/PHASE-1-BOOTSTRAP.md)
+
+**Noch nicht für produktive Schuldaten verwenden.** Der nächste Schritt ist ein kontrollierter Test auf einem frisch installierten Raspberry Pi 3 mit Raspberry Pi OS 64-bit und microSD. Erst danach folgen Ticketdatenbank, Wiederherstellung, USB-Backup, Domain/Tunnel und die schulneutrale Anwendung.
 
 Siehe auch:
 
