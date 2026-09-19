@@ -23,9 +23,11 @@ if ! mariadb --protocol=socket -e "SELECT 1;" >/dev/null 2>&1; then
   die "Lokaler MariaDB-Zugriff über Unix-Socket fehlgeschlagen."
 fi
 
-listen="$(ss -ltnp 2>/dev/null | awk '$4 ~ /:3306$/ {print $4}' | paste -sd ',' -)"
-if [[ -n "${listen}" && "${listen}" != "127.0.0.1:3306" && "${listen}" != "[::1]:3306" ]]; then
-  warn "MariaDB-Listenadresse prüfen: ${listen}"
+if command -v ss >/dev/null 2>&1; then
+  listen="$(ss -ltnp 2>/dev/null | awk '$4 ~ /:3306$/ {print $4}' | paste -sd ',' -)"
+  if [[ -n "${listen}" && "${listen}" != "127.0.0.1:3306" && "${listen}" != "[::1]:3306" ]]; then
+    warn "MariaDB-Listenadresse prüfen: ${listen}"
+  fi
 fi
 
 info "MariaDB läuft und ist für die spätere lokale Anwendungsdatenbank vorbereitet."
