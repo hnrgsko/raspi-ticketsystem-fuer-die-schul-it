@@ -8,7 +8,7 @@ install -d -m 0755 /opt/schulit/releases
 install -d -m 0755 /opt/schulit/updater
 install -d -m 0755 /opt/schulit/setup
 
-install -d -m 0750 /etc/schulit
+install -d -o root -g www-data -m 0710 /etc/schulit
 
 # www-data only needs traverse access to the Schul-IT state root.
 # Individual subdirectories keep their own stricter permissions.
@@ -23,6 +23,8 @@ install -d -o root -g www-data -m 0750 /var/lib/schulit/setup
 
 # Enforce permissions as install -d does not necessarily correct ownership of
 # an already existing directory on every rerun.
+chown root:www-data /etc/schulit
+chmod 0710 /etc/schulit
 chown root:www-data /var/lib/schulit /var/lib/schulit/setup
 chmod 0710 /var/lib/schulit
 chmod 0750 /var/lib/schulit/setup
