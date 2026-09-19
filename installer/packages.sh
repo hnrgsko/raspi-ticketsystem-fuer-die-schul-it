@@ -25,6 +25,9 @@ packages=(
   jq
   rsync
   unzip
+  iproute2
+  util-linux
+  avahi-daemon
 )
 
 info "APT-Paketlisten werden aktualisiert ..."
@@ -35,7 +38,9 @@ apt-get install -y --no-install-recommends "${packages[@]}"
 
 systemctl enable --now apache2
 systemctl enable --now mariadb
+systemctl enable --now avahi-daemon
 
 info "Apache: $(apache2ctl -v | head -n 1)"
 info "PHP: $(php -r 'echo PHP_VERSION;')"
 info "MariaDB: $(mariadb --version | head -n 1)"
+info "mDNS/Avahi: aktiv"
