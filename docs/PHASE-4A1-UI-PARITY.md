@@ -52,17 +52,17 @@ Sie:
 - wird auch vom vorgeschalteten Startbutton geöffnet
 - behält die Unterhaltung beim Zu- und Wiederaufklappen
 - verwendet einen sandboxed iframe
-- ist derzeit gezielt für AIS.chat-Dialogpartner vorgesehen
+- kann beliebige konfigurierte HTTPS-Chats bzw. Assistenten einbetten
 
-Für die eingebettete Variante akzeptiert die Anwendung nur AIS.chat-Dialogpartner-URLs nach dem unterstützten Schema auf `https://app.ais-chat.schule/`.
+Für die eingebettete Variante akzeptiert die Anwendung gültige HTTPS-URLs ohne in der URL eingebettete Zugangsdaten.
 
-Andere Assistenten können weiterhin als normaler externer Link verwendet werden.
+**Getestet wurde die Sprechblase bisher mit AIS.chat-Dialogpartnern.** Andere Chats oder Assistenten können ebenfalls funktionieren, müssen aber die Einbettung in einem iframe erlauben. Blockiert ein Anbieter die Einbettung über eigene Sicherheitsheader, bleibt der normale externe Assistenten-Link nutzbar.
 
 ## Sicherheit
 
 - Assistent standardmäßig aus
 - Sprechblase standardmäßig aus
-- externe Frames ausschließlich von `app.ais-chat.schule`
+- eingebettete Frames nur über HTTPS; die konkrete Ziel-URL wird durch einen System-Admin konfiguriert
 - serverseitige URL-Prüfung
 - zusätzliche URL-Prüfung im Browser
 - iframe sandbox
@@ -77,3 +77,4 @@ Auf echter Hardware:
 3. KI-Assistent aktivieren
 4. Assistent als vorgeschalteten Schritt prüfen
 5. experimentelle Sprechblase mit AIS.chat-Dialogpartner testen
+6. optional einen weiteren iframe-fähigen HTTPS-Chat testen
