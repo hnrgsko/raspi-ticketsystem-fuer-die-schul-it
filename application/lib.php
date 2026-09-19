@@ -110,6 +110,57 @@ function app_setting(PDO $db, string $key, string $fallback = ''): string
     return is_string($value) ? $value : $fallback;
 }
 
+
+function app_setting_bool(PDO $db, string $key, bool $fallback = false): bool
+{
+    $value = strtolower(trim(app_setting($db, $key, $fallback ? '1' : '0')));
+    return in_array($value, ['1','true','yes','on'], true);
+}
+
+function app_assistant_settings(PDO $db): array
+{
+    return [
+        'enabled' => app_setting_bool($db, 'assistant_enabled', false),
+        'label' => app_setting($db, 'assistant_label', 'KI-Assistent'),
+        'url' => app_setting($db, 'assistant_url', ''),
+    ];
+}
+
+function app_admin_save_assistant_settings(PDO $db, array $input): void
+{
+    $enabled = isset($input['assistant_enabled']) && (string)$input['assistant_enabled'] === '1';
+    $label = app_text($input['assistant_label'] ?? '', 80, true, 'Bezeichnung des KI-Assistenten');
+    $url = trim((string)($input['assistant_url'] ?? ''));
+
+    if ($url !== '') {
+        if (strlen($url) > 2048 || filter_var($url, FILTER_VALIDATE_URL) === false) {
+            throw new InvalidArgumentException('Bitte eine gültige vollständige Assistenten-URL eingeben.');
+        }
+        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+        if (!in_array($scheme, ['https','http'], true)) {
+            throw new InvalidArgumentException('Die Assistenten-URL muss mit https:// oder http:// beginnen.');
+        }
+    }
+    if ($enabled && $url === '') {
+        throw new InvalidArgumentException('Zum Aktivieren des KI-Assistenten muss eine URL hinterlegt sein.');
+    }
+
+    $values = [
+        'assistant_enabled' => $enabled ? '1' : '0',
+        'assistant_label' => $label,
+        'assistant_url' => $url,
+    ];
+
+    $q = $db->prepare(
+        'INSERT INTO system_settings(setting_key,setting_value,updated_at)
+         VALUES(:key,:value,UTC_TIMESTAMP(6))
+         ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_at=UTC_TIMESTAMP(6)'
+    );
+    foreach ($values as $key => $value) {
+        $q->execute(['key' => $key, 'value' => $value]);
+    }
+}
+
 function app_csrf(array &$session, string $key = 'csrf'): string
 {
     if (!is_string($session[$key] ?? null) || preg_match('/\A[a-f0-9]{64}\z/', $session[$key]) !== 1) {
@@ -430,6 +481,29 @@ function app_admin_tickets(PDO $db, array $filters): array
     $q = $db->prepare($sql);
     $q->execute($params);
     return $q->fetchAll();
+}
+
+function app_admin_category_list(PDO $db): array
+{
+    return $db->query('SELECT id,name FROM categories WHERE is_active=1 ORDER BY name,id')->fetchAll();
+}
+
+function app_admin_quick_status(PDO $db, string $id, string $adminId, string $status): void
+{
+    if (!in_array($status, ['in_progress','awaiting_reply','done'], true)) {
+        throw new InvalidArgumentException('Ungültige Schnellaktion.');
+    }
+    $q = $db->prepare('SELECT priority FROM tickets WHERE id=:id');
+    $q->execute(['id' => $id]);
+    $priority = $q->fetchColumn();
+    if (!is_string($priority)) {
+        throw new InvalidArgumentException('Ticket nicht gefunden.');
+    }
+    app_admin_update_ticket($db, $id, $adminId, [
+        'status' => $status,
+        'priority' => $priority,
+        'comment' => '',
+    ]);
 }
 
 function app_admin_ticket(PDO $db, string $id): ?array
