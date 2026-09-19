@@ -104,7 +104,7 @@ $csrf = $authorized ? app_csrf($_SESSION) : '';
 <section class="card">
 <h1>Einrichtung noch nicht abgeschlossen</h1>
 <p class="muted">Die technische Serverbasis läuft, aber die Ticketdatenbank ist noch nicht vollständig eingerichtet.</p>
-<a class="button" href="http://<?= app_escape((string)($_SERVER['HTTP_HOST'] ?? 'localhost')) ?>:8080/">Einrichtungsassistent öffnen</a>
+<a class="button" href="http://<?= app_escape(app_current_host()) ?>:8080/">Einrichtungsassistent öffnen</a>
 </section>
 
 <?php else: ?>
