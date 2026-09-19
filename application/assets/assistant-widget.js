@@ -10,9 +10,15 @@
     const summary = widget.querySelector('summary');
     const url = slot.dataset.chatUrl || '';
 
-    // Defense in depth: the same URL shape is validated server-side.
-    const aisDialog = /^https:\/\/app\.ais-chat\.schule\/ua\/characters\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/dialog\?inviteCode=[A-Za-z0-9_-]{1,128}$/;
-    if (!aisDialog.test(url) || /\s/.test(url)) return;
+    // Defense in depth: the server already validates the configured URL.
+    // The embedded experimental mode accepts HTTPS destinations without URL credentials.
+    let parsed;
+    try {
+        parsed = new URL(url);
+    } catch (_) {
+        return;
+    }
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !parsed.hostname) return;
 
     close.hidden = false;
     let loaded = false;
@@ -21,7 +27,7 @@
     const loadFrame = () => {
         if (loaded) return;
         const frame = document.createElement('iframe');
-        frame.title = 'AIS.chat KI-Assistent';
+        frame.title = 'Eingebetteter KI-Assistent';
         frame.referrerPolicy = 'no-referrer';
         frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
         frame.src = url;
