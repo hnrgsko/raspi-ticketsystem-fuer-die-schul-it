@@ -20,6 +20,7 @@ import signal
 import socket
 import subprocess
 import sys
+import traceback
 from typing import Any
 
 import backup_core
@@ -624,7 +625,8 @@ def serve() -> None:
             except SetupError as exc:
                 response = {"ok": False, "error": str(exc)}
             except Exception:
-                response = {"ok": False, "error": "Interner Setup-Fehler."}
+                traceback.print_exc(file=sys.stderr)
+                response = {"ok": False, "error": "Interner Setup-Fehler. Details wurden im Systemprotokoll gespeichert."}
             conn.sendall((json.dumps(response, ensure_ascii=False) + "\n").encode("utf-8"))
 
 
