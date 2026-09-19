@@ -263,14 +263,21 @@ def configure_crypto(recovery_code: str) -> dict[str, Any]:
             identity = identity_path.read_bytes()
 
             salt = secrets.token_bytes(16)
-            key = hashlib.scrypt(
-                recovery_code.encode("utf-8"),
-                salt=salt,
-                n=2**15,
-                r=8,
-                p=1,
-                dklen=32,
-            )
+            try:
+                key = hashlib.scrypt(
+                    recovery_code.encode("utf-8"),
+                    salt=salt,
+                    n=2**14,
+                    r=8,
+                    p=1,
+                    dklen=32,
+                    maxmem=64 * 1024 * 1024,
+                )
+            except ValueError as exc:
+                raise BackupError(
+                    "Die Schlüsselableitung für die Backup-Verschlüsselung ist auf diesem System "
+                    "an ein Speicherlimit gestoßen."
+                ) from exc
             nonce = secrets.token_bytes(12)
             aad = f"schulit-backup-key:{school_id}".encode("utf-8")
             ciphertext = AESGCM(key).encrypt(nonce, identity, aad)
@@ -281,7 +288,7 @@ def configure_crypto(recovery_code: str) -> dict[str, Any]:
             "recipient": recipient,
             "kdf": {
                 "name": "scrypt",
-                "n": 2**15,
+                "n": 2**14,
                 "r": 8,
                 "p": 1,
                 "salt_b64": base64.b64encode(salt).decode("ascii"),
