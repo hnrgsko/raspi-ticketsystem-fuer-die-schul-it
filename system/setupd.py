@@ -146,7 +146,7 @@ declare(strict_types=1);
 
 return [
     'database' => [
-        'host' => '127.0.0.1',
+        'host' => 'localhost',
         'port' => 3306,
         'name' => '{DB_NAME}',
         'user' => '{DB_USER}',
