@@ -163,6 +163,23 @@ Dokumentation:
 
 - [Phase 1 – Bootstrap und lokale Serverbasis](docs/PHASE-1-BOOTSTRAP.md)
 - [Phase 2 – Einrichtungsassistent](docs/PHASE-2-SETUP.md)
+- [Phase 3a – USB-Backupmedium registrieren](docs/PHASE-3-USB-BACKUP.md)
+
+### Phase 3a – implementiert, nächster Realtest
+
+Neu im Setup-Assistenten:
+
+- USB-Datenträger automatisch erkennen
+- Label, Modell, Größe, Dateisystem, UUID und Mountpunkt anzeigen
+- Backupmedium bewusst auswählen
+- ausschließlich UUID dauerhaft speichern
+- vorhandene Daten vollständig erhalten
+- keinen Datenträger formatieren oder leeren
+- ausschließlich `SchulIT-Ticketsystem/Backups/<Schulkennung>/` anlegen
+- fremde gleichnamige Ordner sicher erkennen und nicht überschreiben
+- schreibgeschützte bzw. nicht unterstützte Datenträger nicht auswählbar machen
+
+Dokumentation: [Phase 3a – USB-Backupmedium registrieren](docs/PHASE-3-USB-BACKUP.md)
 
 **Noch nicht für produktive Schuldaten verwenden.**
 Siehe auch:
