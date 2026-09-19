@@ -15,7 +15,7 @@ $initialized = ($setupStatus['initialized'] ?? false) === true;
 $state = is_array($setupStatus['state'] ?? null) ? $setupStatus['state'] : [];
 
 $step = $_GET['step'] ?? 'start';
-if (!is_string($step) || !in_array($step, ['start', 'school', 'admin', 'restore', 'recovery', 'backup', 'done'], true)) {
+if (!is_string($step) || !in_array($step, ['start', 'school', 'admin', 'restore', 'restore_done', 'recovery', 'backup', 'done'], true)) {
     $step = 'start';
 }
 
@@ -32,6 +32,23 @@ if ($authorized && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'restore') {
             header('Location: /?step=restore', true, 303);
+            exit;
+        }
+
+        if ($action === 'restore_backup') {
+            $encodedSelection = (string)($_POST['restore_selection'] ?? '');
+            $recoveryCodeRestore = trim((string)($_POST['recovery_code'] ?? ''));
+            if ($recoveryCodeRestore === '') {
+                throw new RuntimeException('Bitte den Recovery-Code eingeben.');
+            }
+            $selection = schulit_decode_restore_selection($encodedSelection);
+            $result = schulit_setupd([
+                'action' => 'restore_backup',
+                'selection' => $selection,
+                'recovery_code' => $recoveryCodeRestore,
+            ]);
+            $_SESSION['restore_result'] = $result;
+            header('Location: /?step=restore_done', true, 303);
             exit;
         }
 
@@ -146,8 +163,21 @@ if ($authorized && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $schoolDraft = is_array($_SESSION['setup_school'] ?? null) ? $_SESSION['setup_school'] : [];
 $recoveryCode = is_string($_SESSION['recovery_code'] ?? null) ? $_SESSION['recovery_code'] : null;
-if ($initialized && !in_array($step, ['recovery', 'backup', 'done'], true)) {
+if ($initialized && !in_array($step, ['recovery', 'backup', 'restore_done', 'done'], true)) {
     $step = 'done';
+}
+
+$restoreBackups = [];
+$restoreResult = is_array($_SESSION['restore_result'] ?? null) ? $_SESSION['restore_result'] : [];
+if ($authorized && !$initialized && $step === 'restore') {
+    try {
+        $restoreResponse = schulit_setupd(['action' => 'discover_restore_backups']);
+        $restoreBackups = is_array($restoreResponse['backups'] ?? null) ? $restoreResponse['backups'] : [];
+    } catch (Throwable $restoreError) {
+        if ($error === null) {
+            $error = $restoreError->getMessage();
+        }
+    }
 }
 
 $backupDevices = [];
@@ -216,7 +246,7 @@ details{margin-top:24px;border-top:1px solid #e5e7eb;padding-top:16px}summary{cu
 
 <?php else: ?>
 
-<?php if ($step !== 'restore'): ?>
+<?php if (!in_array($step, ['restore', 'restore_done'], true)): ?>
 <div class="progress no-print" aria-label="Einrichtungsfortschritt">
   <div class="<?= step_class($step, 'start') ?>"></div>
   <div class="<?= step_class($step, 'school') ?>"></div>
@@ -261,9 +291,62 @@ details{margin-top:24px;border-top:1px solid #e5e7eb;padding-top:16px}summary{cu
 
 <?php elseif ($step === 'restore'): ?>
 <h2>Aus Backup wiederherstellen</h2>
-<p class="sub">Dieser Einstieg ist bereits fest vorgesehen. Im nächsten Backup-Baustein erkennt der Assistent USB-Datenträger und lässt eine vorhandene Sicherung auswählen.</p>
-<div class="note warning"><strong>Noch nicht aktiv:</strong> Bitte für den Moment keine Schuldaten auf diesem Weg wiederherstellen. Das portable Backupformat und die USB-Auswahl werden als nächster Systembaustein implementiert.</div>
-<div class="actions"><a class="button secondary" href="/">Zurück</a></div>
+<p class="sub">Der Assistent durchsucht angeschlossene USB-Datenträger nach verschlüsselten Schul-IT-Backups. Vor der Wiederherstellung werden Manifest und SHA-256-Prüfsumme kontrolliert.</p>
+
+<?php if (!$restoreBackups): ?>
+<div class="note warning"><strong>Kein wiederherstellbares Backup gefunden.</strong><br>Stecke den USB-Stick mit dem Ordner <code>SchulIT-Ticketsystem/Backups/</code> ein und suche erneut.</div>
+<div class="actions"><a class="button secondary" href="/?step=restore">Erneut suchen</a><a class="button secondary" href="/">Zurück</a></div>
+<?php else: ?>
+<form method="post">
+<input type="hidden" name="csrf" value="<?= schulit_escape(schulit_csrf_token()) ?>">
+<input type="hidden" name="action" value="restore_backup">
+
+<?php foreach ($restoreBackups as $candidate): ?>
+<?php
+$restoreLabel = trim((string)($candidate['device_label'] ?? ''));
+$restoreModel = trim((string)($candidate['device_model'] ?? ''));
+$restoreDevice = $restoreLabel !== '' ? $restoreLabel : ($restoreModel !== '' ? $restoreModel : 'USB-Datenträger');
+?>
+<div class="device">
+<label>
+<input type="radio" name="restore_selection" value="<?= schulit_escape(schulit_encode_restore_selection($candidate)) ?>" required>
+<span>
+<span class="device-title">Schulkennung <?= schulit_escape((string)($candidate['school_id'] ?? '–')) ?></span>
+<span class="pill"><?= schulit_escape($restoreDevice) ?></span>
+<div class="device-meta">
+Backup vom <?= schulit_escape((string)($candidate['created_at'] ?? '–')) ?><br>
+Archiv: <?= schulit_escape((string)($candidate['archive'] ?? '–')) ?><br>
+Größe: <?= schulit_escape(schulit_format_bytes((int)($candidate['size_bytes'] ?? 0))) ?>
+</div>
+</span>
+</label>
+</div>
+<?php endforeach; ?>
+
+<label for="restore_recovery_code">Recovery-Code</label>
+<input id="restore_recovery_code" type="password" name="recovery_code" required autocomplete="off" placeholder="Recovery-Code eingeben">
+
+<div class="note warning"><strong>Wichtig:</strong> Diese Funktion ist für einen frischen, noch nicht eingerichteten Raspberry Pi gedacht. Das ausgewählte Backup stellt Datenbank, Schulkonfiguration, Administrator und Backup-Einstellungen wieder her.</div>
+<div class="actions"><button type="submit">Ausgewähltes Backup wiederherstellen</button><a class="button secondary" href="/?step=restore">Erneut suchen</a><a class="button secondary" href="/">Zurück</a></div>
+</form>
+<?php endif; ?>
+
+<?php elseif ($step === 'restore_done'): ?>
+<h2>Wiederherstellung abgeschlossen</h2>
+<?php if ($restoreResult): ?>
+<p class="sub">Das verschlüsselte Backup wurde geprüft, entschlüsselt und auf diesem Raspberry Pi wiederhergestellt.</p>
+<div class="summary">
+  <div><div class="key">Schule</div><div class="value"><?= schulit_escape((string)($restoreResult['school_name'] ?? 'wiederhergestellt')) ?></div></div>
+  <div><div class="key">Schulkennung</div><div class="value"><?= schulit_escape((string)($restoreResult['school_id'] ?? '–')) ?></div></div>
+  <div><div class="key">System-Admin</div><div class="value"><?= schulit_escape((string)($restoreResult['admin_username'] ?? '–')) ?></div></div>
+  <div><div class="key">Backup</div><div class="value"><?= schulit_escape((string)($restoreResult['backup_created_at'] ?? '–')) ?></div></div>
+</div>
+<div class="note"><strong>Backupprüfung:</strong> SHA-256 erfolgreich ✓<br><strong>Entschlüsselung:</strong> erfolgreich ✓<br><strong>Datenbank:</strong> wiederhergestellt ✓<br><strong>Automatische Sicherung:</strong> aktiviert ✓</div>
+<div class="actions"><a class="button" href="/?step=done">Zum Systemstatus</a></div>
+<?php else: ?>
+<div class="note warning">In dieser Browsersitzung liegen keine Wiederherstellungsdetails mehr vor.</div>
+<div class="actions"><a class="button" href="/?step=done">Zum Systemstatus</a></div>
+<?php endif; ?>
 
 <?php elseif ($step === 'school'): ?>
 <h2>1. Schule</h2>
