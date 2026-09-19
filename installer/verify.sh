@@ -38,6 +38,7 @@ check "MariaDB läuft" systemctl is-active mariadb
 check "MariaDB lokal erreichbar" mariadb --protocol=socket -e "SELECT 1;"
 check "Setup-Systemdienst läuft" systemctl is-active schulit-setupd.service
 check "Setup-Systemsocket vorhanden" test -S /run/schulit/setupd.sock
+check "USB-Erkennung antwortet" python3 -c 'import json,socket; s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.settimeout(3); s.connect("/run/schulit/setupd.sock"); s.sendall(b"{\"action\":\"list_backup_devices\"}\\n"); data=s.recv(131072); r=json.loads(data.decode()); raise SystemExit(0 if r.get("ok") is True and isinstance(r.get("devices"), list) else 1)'
 check "PHP CLI verfügbar" php -v
 check "PDO MySQL geladen" php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);'
 check "mbstring geladen" php -r 'exit(extension_loaded("mbstring") ? 0 : 1);'
@@ -54,7 +55,7 @@ mariadb_version="$(mariadb --batch --skip-column-names -e 'SELECT VERSION();' 2>
 apache_version="$(apache2ctl -v | awk -F': ' '/Server version/ {print $2}')"
 
 tmp="$(mktemp)"
-jq -n   --arg install_version "${SCHULIT_INSTALL_VERSION:-0.2.0-dev}"   --arg php "${php_version}"   --arg mariadb "${mariadb_version}"   --arg apache "${apache_version}"   --arg verified_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"   '{
+jq -n   --arg install_version "${SCHULIT_INSTALL_VERSION:-0.3.0-dev}"   --arg php "${php_version}"   --arg mariadb "${mariadb_version}"   --arg apache "${apache_version}"   --arg verified_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"   '{
     phase: 2,
     install_version: $install_version,
     php: $php,
