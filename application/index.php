@@ -77,6 +77,12 @@ if (!is_string($type) || !in_array($type, ['support','defect'], true)) {
 }
 $categories = ($authorized && $ready && $db instanceof PDO) ? app_categories($db, false) : [];
 $csrf = $authorized ? app_csrf($_SESSION) : '';
+$assistantWidgetActive = $authorized
+    && $ready
+    && ($assistant['enabled'] ?? false)
+    && ($assistant['widget_enabled'] ?? false)
+    && is_string($assistant['widget_url'] ?? null)
+    && ($assistant['widget_url'] ?? '') !== '';
 ?><!doctype html>
 <html lang="de">
 <head>
@@ -92,7 +98,7 @@ $csrf = $authorized ? app_csrf($_SESSION) : '';
     <div class="brand">Schul-IT Ticketsystem</div>
     <div class="school"><?= app_escape($schoolName) ?></div>
   </div>
-  <?php if ($authorized): ?><nav><a href="/">Tickets</a><?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?></nav><?php endif; ?>
+  <?php if ($authorized): ?><nav><a href="/">Tickets</a><?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a<?= $assistantWidgetActive ? ' data-assistant-open' : '' ?> href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?></nav><?php endif; ?>
 </header>
 
 <?php if (!$authorized): ?>
@@ -139,7 +145,7 @@ $csrf = $authorized ? app_csrf($_SESSION) : '';
   <span class="label">Empfohlener erster Schritt</span>
   <h2 id="assistant-title"><?= app_escape((string)$assistant['label']) ?> fragen</h2>
   <p>Beschreibe dein Problem möglichst konkret. Der Assistent kann dir direkt bei typischen Fragen zu Anwendungen, Geräten oder Zugängen helfen.</p>
-  <a class="button assistant-start" href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer">KI-Assistent starten</a>
+  <a class="button assistant-start"<?= $assistantWidgetActive ? ' data-assistant-open' : '' ?> href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer">KI-Assistent starten</a>
   <p class="assistant-disclosure"><strong>Hinweis:</strong> KI kann Fehler machen. Prüfe Antworten vor der Verwendung und gib keine Passwörter oder unnötigen personenbezogenen Daten ein.</p>
 </section>
 <h2 class="ticket-alternative-title">Problem nicht gelöst?</h2>
@@ -233,5 +239,27 @@ $csrf = $authorized ? app_csrf($_SESSION) : '';
 
 <?php endif; ?>
 </main>
+
+<?php if ($assistantWidgetActive): ?>
+<aside class="assistant-widget" aria-label="Experimenteller KI-Assistent">
+<details id="assistant-widget">
+  <summary aria-label="<?= app_escape((string)$assistant['label']) ?> öffnen"><span aria-hidden="true">💬</span></summary>
+  <section class="assistant-widget-panel" aria-labelledby="assistant-widget-title">
+    <div class="assistant-widget-heading">
+      <div>
+        <span class="experimental-badge">Experimentell</span>
+        <h2 id="assistant-widget-title"><?= app_escape((string)$assistant['label']) ?></h2>
+      </div>
+      <button type="button" id="assistant-widget-close" class="secondary" hidden>Schließen</button>
+    </div>
+    <p class="assistant-widget-note">Eingebettete Darstellung für AIS.chat-Dialogpartner. KI kann Fehler machen. Keine Passwörter oder unnötigen personenbezogenen Daten eingeben.</p>
+    <div id="assistant-widget-frame" data-chat-url="<?= app_escape((string)$assistant['widget_url']) ?>"></div>
+    <noscript><p>Für die eingebettete Sprechblase ist JavaScript erforderlich. Der Assistent kann weiterhin über den normalen Link geöffnet werden.</p></noscript>
+  </section>
+</details>
+</aside>
+<script src="/assets/assistant-widget.js" defer></script>
+<?php endif; ?>
+
 </body>
 </html>
