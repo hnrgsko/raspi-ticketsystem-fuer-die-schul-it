@@ -38,10 +38,23 @@ check_app_token() {
   cookiejar="$(mktemp)"
   page="$(mktemp)"
 
-  if curl --fail --silent --show-error --location       --cookie-jar "${cookiejar}" --cookie "${cookiejar}"       --get --data-urlencode "access=${token}"       http://127.0.0.1:8081/ > "${page}"       && ! grep -q "Zugang erforderlich" "${page}"       && { grep -q "Wie können wir helfen" "${page}" || grep -q "Einrichtung noch nicht abgeschlossen" "${page}"; }; then
+  if ! curl --fail --silent --show-error --location       --cookie-jar "${cookiejar}" --cookie "${cookiejar}"       --get --data-urlencode "access=${token}"       http://127.0.0.1:8081/ > "${page}"; then
+    printf '[schulit] ✗ Kollegiums-Zugangstoken wird nicht akzeptiert\n' >&2
+    failures=$((failures + 1))
+  elif grep -q "Zugang erforderlich" "${page}"; then
+    printf '[schulit] ✗ Kollegiums-Zugangstoken wird nicht akzeptiert\n' >&2
+    failures=$((failures + 1))
+  elif [[ -f /var/lib/schulit/setup/installation.json ]]; then
+    if grep -q "Wie können wir helfen" "${page}" && ! grep -q "Einrichtung noch nicht abgeschlossen" "${page}"; then
+      printf '[schulit] ✓ Kollegiums-Zugang und Ticketdatenbank sind bereit\n'
+    else
+      printf '[schulit] ✗ Kollegiums-Zugang funktioniert, aber Ticketdatenbank ist nicht bereit\n' >&2
+      failures=$((failures + 1))
+    fi
+  elif grep -q "Einrichtung noch nicht abgeschlossen" "${page}" || grep -q "Wie können wir helfen" "${page}"; then
     printf '[schulit] ✓ Kollegiums-Zugangstoken wird akzeptiert\n'
   else
-    printf '[schulit] ✗ Kollegiums-Zugangstoken wird nicht akzeptiert\n' >&2
+    printf '[schulit] ✗ Kollegiumsseite liefert einen unerwarteten Zustand\n' >&2
     failures=$((failures + 1))
   fi
 
@@ -66,6 +79,9 @@ check "curl geladen" php -r 'exit(extension_loaded("curl") ? 0 : 1);'
 check "Setup-Seite erreichbar" curl --fail --silent --show-error http://127.0.0.1:8080/
 check "Ticketsystem auf Port 8081 erreichbar" curl --fail --silent --show-error http://127.0.0.1:8081/
 check "Ticket-Admin erreichbar" curl --fail --silent --show-error http://127.0.0.1:8081/admin/
+if [[ -f /var/lib/schulit/setup/installation.json ]]; then
+  check "Anwendungsdatenbank über Web-Konfiguration erreichbar" runuser -u www-data -- php -r 'require "/opt/schulit/application/lib.php"; $db=app_database(); exit(app_tables_ready($db) ? 0 : 1);'
+fi
 check_setup_token
 check_app_token
 
