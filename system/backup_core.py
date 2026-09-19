@@ -798,6 +798,17 @@ FLUSH PRIVILEGES;
     _run(["mariadb", "--protocol=socket"], input_bytes=access_sql.encode("utf-8"), timeout=60)
 
 
+def _normalize_restored_app_config(path: pathlib.Path) -> None:
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    if "'user' => 'schulit_app'" in text and "'host' => '127.0.0.1'" in text:
+        text = text.replace("'host' => '127.0.0.1'", "'host' => 'localhost'")
+        _atomic_write(path, text, 0o640)
+        import grp
+        os.chown(path, 0, grp.getgrnam("www-data").gr_gid)
+
+
 def _install_restored_file(source: pathlib.Path, destination: pathlib.Path, mode: int, group: str | None = None) -> None:
     if not source.is_file():
         return
@@ -881,6 +892,7 @@ def restore_backup(selection: dict[str, Any], recovery_code: str) -> dict[str, A
             _restore_database(payload, db_access)
 
             _install_restored_file(app_config, pathlib.Path("/etc/schulit/app.php"), 0o640, "www-data")
+            _normalize_restored_app_config(pathlib.Path("/etc/schulit/app.php"))
             _install_restored_file(payload / "etc-schulit" / "system.conf", pathlib.Path("/etc/schulit/system.conf"), 0o640)
             _install_restored_file(payload / "etc-schulit" / "access-token", pathlib.Path("/etc/schulit/access-token"), 0o640, "www-data")
             _install_restored_file(payload / "etc-schulit" / "backup.json", BACKUP_CONFIG, 0o600)
