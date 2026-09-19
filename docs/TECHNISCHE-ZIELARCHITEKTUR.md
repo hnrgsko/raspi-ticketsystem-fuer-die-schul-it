@@ -156,9 +156,24 @@ Der Assistent:
 3. lässt den System-Administrator bewusst einen Datenträger auswählen,
 4. speichert die UUID des gewählten Dateisystems,
 5. richtet einen festen Mountpunkt `/mnt/schulit-backup` ein,
-6. verwendet `nofail`, damit der Raspberry Pi auch ohne eingesteckten Stick bootet.
+6. verwendet `nofail`, damit der Raspberry Pi auch ohne eingesteckten Stick bootet,
+7. legt ausschließlich einen eigenen Backup-Ordner auf dem vorhandenen Dateisystem an.
 
-Der Installer formatiert einen Datenträger niemals ohne ausdrückliche, mehrstufige Bestätigung.
+**Wichtig:** Der Backup-Stick wird nicht formatiert, nicht geleert und vorhandene Dateien werden nicht verändert.
+
+Vorgesehene Ordnerstruktur auf dem ausgewählten Datenträger:
+
+```text
+SchulIT-Ticketsystem/
+└── Backups/
+    └── <Schulkennung>/
+        ├── manifests/
+        └── archives/
+```
+
+Der Installer verändert weder das Dateisystem des Datenträgers noch andere Verzeichnisse. Er arbeitet ausschließlich innerhalb des eigenen Ordners `SchulIT-Ticketsystem/`.
+
+Wenn bereits ein gleichnamiger Ordner existiert, prüft der Assistent dessen Struktur und verwendet ihn nur weiter, wenn er zu dieser Installation passt. Fremde oder unerwartete Inhalte werden niemals automatisch gelöscht oder überschrieben.
 
 ### Inhalt eines Vollbackups
 
