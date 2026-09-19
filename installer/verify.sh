@@ -32,6 +32,22 @@ check_setup_token() {
   rm -f "${cookiejar}" "${page}"
 }
 
+check_app_token() {
+  local token cookiejar page
+  token="$(cat /etc/schulit/access-token)"
+  cookiejar="$(mktemp)"
+  page="$(mktemp)"
+
+  if curl --fail --silent --show-error --location       --cookie-jar "${cookiejar}" --cookie "${cookiejar}"       --get --data-urlencode "access=${token}"       http://127.0.0.1:8081/ > "${page}"       && ! grep -q "Zugang erforderlich" "${page}"       && { grep -q "Wie können wir helfen" "${page}" || grep -q "Einrichtung noch nicht abgeschlossen" "${page}"; }; then
+    printf '[schulit] ✓ Kollegiums-Zugangstoken wird akzeptiert\n'
+  else
+    printf '[schulit] ✗ Kollegiums-Zugangstoken wird nicht akzeptiert\n' >&2
+    failures=$((failures + 1))
+  fi
+
+  rm -f "${cookiejar}" "${page}"
+}
+
 check "Apache-Konfiguration" apache2ctl configtest
 check "Apache läuft" systemctl is-active apache2
 check "MariaDB läuft" systemctl is-active mariadb
@@ -51,6 +67,7 @@ check "Setup-Seite erreichbar" curl --fail --silent --show-error http://127.0.0.
 check "Ticketsystem auf Port 8081 erreichbar" curl --fail --silent --show-error http://127.0.0.1:8081/
 check "Ticket-Admin erreichbar" curl --fail --silent --show-error http://127.0.0.1:8081/admin/
 check_setup_token
+check_app_token
 
 if (( failures > 0 )); then
   die "${failures} Systemprüfung(en) fehlgeschlagen."
@@ -62,7 +79,7 @@ apache_version="$(apache2ctl -v | awk -F': ' '/Server version/ {print $2}')"
 
 tmp="$(mktemp)"
 jq -n   --arg install_version "${SCHULIT_INSTALL_VERSION:-0.4.0-dev}"   --arg php "${php_version}"   --arg mariadb "${mariadb_version}"   --arg apache "${apache_version}"   --arg verified_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"   '{
-    phase: 2,
+    phase: 4,
     install_version: $install_version,
     php: $php,
     mariadb: $mariadb,
