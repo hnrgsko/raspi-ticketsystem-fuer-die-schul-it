@@ -8,6 +8,16 @@ access_token_file="/etc/schulit/access-token"
 
 [[ -d "${SCHULIT_SOURCE_ROOT}/application" ]] || die "Anwendungsdateien fehlen."
 
+# Early Phase-2 installations generated the local DB host as 127.0.0.1 while
+# the dedicated MariaDB account is intentionally limited to @localhost.
+# Normalize only our exact generated local configuration; custom DB hosts stay untouched.
+if [[ -f /etc/schulit/app.php ]]    && grep -q "'user' => 'schulit_app'" /etc/schulit/app.php    && grep -q "'host' => '127.0.0.1'" /etc/schulit/app.php; then
+  sed -i "s/'host' => '127\.0\.0\.1'/'host' => 'localhost'/" /etc/schulit/app.php
+  chown root:www-data /etc/schulit/app.php
+  chmod 0640 /etc/schulit/app.php
+  info "Lokale Datenbankverbindung auf Unix-Socket/localhost aktualisiert."
+fi
+
 install -d -m 0755 "${app_root}"
 rsync -a --delete "${SCHULIT_SOURCE_ROOT}/application/" "${app_root}/"
 chown -R root:root "${app_root}"
