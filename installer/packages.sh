@@ -19,6 +19,7 @@ packages=(
   php-intl
   php-gd
   php-opcache
+  python3
   curl
   ca-certificates
   openssl
@@ -45,4 +46,5 @@ systemctl enable --now avahi-daemon
 info "Apache: $(apache2ctl -v | head -n 1)"
 info "PHP: $(php -r 'echo PHP_VERSION;')"
 info "MariaDB: $(mariadb --version | head -n 1)"
+info "Python: $(python3 --version)"
 info "mDNS/Avahi: aktiv"
