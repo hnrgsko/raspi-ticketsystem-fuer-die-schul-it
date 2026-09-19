@@ -201,7 +201,7 @@ Auf echter Hardware erfolgreich bestätigt: Recovery-Code-geschützte Backup-Ver
 
 Dokumentation: [Phase 3b – Verschlüsselte Backups](docs/PHASE-3B-ENCRYPTED-BACKUP.md)
 
-### Phase 3c – implementiert, nächster Realtest
+### Phase 3c – Restore-Prüfung auf Raspberry Pi 4 erfolgreich real getestet
 
 Neu vorhanden:
 
@@ -213,6 +213,8 @@ Neu vorhanden:
 - Wiederherstellung von Datenbank, Schulkonfiguration, Adminstatus, Backupkonfiguration und Uploads
 - erneute Aktivierung des automatischen Backup-Timers
 - Schutz gegen versehentliches Überschreiben einer bereits eingerichteten Installation
+
+Nicht-destruktiver Restore-Test auf echter Hardware erfolgreich bestätigt: SHA-256, Recovery-Code, age-Entschlüsselung, sichere Archivprüfung, Konfiguration und Datenbankdump. Das laufende System wurde dabei nicht verändert. Der vollständige Katastrophentest auf einem frischen Boot-Datenträger bleibt noch offen.
 
 Dokumentation: [Phase 3c – Wiederherstellung](docs/PHASE-3C-RESTORE.md)
 
