@@ -757,14 +757,14 @@ def _read_database_access(app_config: pathlib.Path) -> dict[str, Any]:
 def _restore_database(payload: pathlib.Path, db_access: dict[str, Any]) -> None:
     password = str(db_access["password"])
     escaped = password.replace("\\", "\\\\").replace("'", "\\'")
-    root_sql = f"""
-DROP DATABASE IF EXISTS `{DB_NAME}`;
-DROP USER IF EXISTS 'schulit_app'@'localhost';
-CREATE USER 'schulit_app'@'localhost' IDENTIFIED BY '{escaped}';
-GRANT SELECT, INSERT, UPDATE, DELETE ON `{DB_NAME}`.* TO 'schulit_app'@'localhost';
-FLUSH PRIVILEGES;
-"""
-    _run(["mariadb", "--protocol=socket"], input_bytes=root_sql.encode("utf-8"), timeout=60)
+
+    # A restore is only allowed before STATE_FILE exists. Reset the dedicated
+    # application database so a previously interrupted restore can be retried.
+    _run(
+        ["mariadb", "--protocol=socket"],
+        input_bytes=f"DROP DATABASE IF EXISTS \`{DB_NAME}\`;\n".encode("utf-8"),
+        timeout=60,
+    )
 
     dump = payload / "database.sql"
     if not dump.is_file():
@@ -784,6 +784,14 @@ FLUSH PRIVILEGES;
         raise BackupError("Datenbank konnte nicht wiederhergestellt werden" + (f": {detail}" if detail else ".")) from exc
     except subprocess.TimeoutExpired as exc:
         raise BackupError("Datenbank-Wiederherstellung hat zu lange gedauert.") from exc
+
+    access_sql = f"""
+DROP USER IF EXISTS 'schulit_app'@'localhost';
+CREATE USER 'schulit_app'@'localhost' IDENTIFIED BY '{escaped}';
+GRANT SELECT, INSERT, UPDATE, DELETE ON `{DB_NAME}`.* TO 'schulit_app'@'localhost';
+FLUSH PRIVILEGES;
+"""
+    _run(["mariadb", "--protocol=socket"], input_bytes=access_sql.encode("utf-8"), timeout=60)
 
 
 def _install_restored_file(source: pathlib.Path, destination: pathlib.Path, mode: int, group: str | None = None) -> None:
