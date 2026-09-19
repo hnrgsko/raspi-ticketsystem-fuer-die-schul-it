@@ -117,18 +117,32 @@ function app_setting_bool(PDO $db, string $key, bool $fallback = false): bool
     return in_array($value, ['1','true','yes','on'], true);
 }
 
+function app_assistant_widget_url(mixed $value): ?string
+{
+    if (!is_string($value) || strlen($value) > 1000) return null;
+    return preg_match(
+        '~\Ahttps://app\.ais-chat\.schule/ua/characters/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/dialog\?inviteCode=[A-Za-z0-9_-]{1,128}\z~D',
+        $value
+    ) === 1 ? $value : null;
+}
+
 function app_assistant_settings(PDO $db): array
 {
+    $url = app_setting($db, 'assistant_url', '');
     return [
         'enabled' => app_setting_bool($db, 'assistant_enabled', false),
         'label' => app_setting($db, 'assistant_label', 'KI-Assistent'),
-        'url' => app_setting($db, 'assistant_url', ''),
+        'url' => $url,
+        'widget_enabled' => app_setting_bool($db, 'assistant_widget_enabled', false),
+        'widget_url' => app_assistant_widget_url($url),
     ];
 }
 
 function app_admin_save_assistant_settings(PDO $db, array $input): void
 {
     $enabled = isset($input['assistant_enabled']) && (string)$input['assistant_enabled'] === '1';
+    $widgetEnabled = isset($input['assistant_widget_enabled'])
+        && (string)$input['assistant_widget_enabled'] === '1';
     $label = app_text($input['assistant_label'] ?? '', 80, true, 'Bezeichnung des KI-Assistenten');
     $url = trim((string)($input['assistant_url'] ?? ''));
 
@@ -144,11 +158,18 @@ function app_admin_save_assistant_settings(PDO $db, array $input): void
     if ($enabled && $url === '') {
         throw new InvalidArgumentException('Zum Aktivieren des KI-Assistenten muss eine URL hinterlegt sein.');
     }
+    if ($widgetEnabled && !$enabled) {
+        throw new InvalidArgumentException('Die experimentelle Sprechblase kann nur zusammen mit dem KI-Assistenten aktiviert werden.');
+    }
+    if ($widgetEnabled && app_assistant_widget_url($url) === null) {
+        throw new InvalidArgumentException('Die experimentelle Sprechblase unterstützt derzeit AIS.chat-Dialogpartner-Links.');
+    }
 
     $values = [
         'assistant_enabled' => $enabled ? '1' : '0',
         'assistant_label' => $label,
         'assistant_url' => $url,
+        'assistant_widget_enabled' => $widgetEnabled ? '1' : '0',
     ];
 
     $q = $db->prepare(
