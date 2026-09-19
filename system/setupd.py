@@ -22,6 +22,8 @@ import subprocess
 import sys
 from typing import Any
 
+import backup_core
+
 SOCKET_PATH = pathlib.Path("/run/schulit/setupd.sock")
 STATE_DIR = pathlib.Path("/var/lib/schulit/setup")
 STATE_FILE = STATE_DIR / "installation.json"
@@ -547,7 +549,34 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
             raise SetupError("Ungültige Datenträger-ID.")
         return register_backup_device(uuid)
     if action == "backup_status":
-        return get_backup_status()
+        base = get_backup_status()
+        try:
+            detail = backup_core.status()
+            base.update({
+                "encryption_configured": detail.get("encryption_configured", False),
+                "last_backup": detail.get("last_backup"),
+            })
+        except backup_core.BackupError:
+            pass
+        return base
+    if action == "activate_backup_crypto":
+        code = request.get("recovery_code")
+        if not isinstance(code, str):
+            raise SetupError("Recovery-Code fehlt.")
+        try:
+            return backup_core.configure_crypto(code)
+        except backup_core.BackupError as exc:
+            raise SetupError(str(exc)) from exc
+    if action == "create_backup":
+        try:
+            return backup_core.create_backup()
+        except backup_core.BackupError as exc:
+            raise SetupError(str(exc)) from exc
+    if action == "list_backups":
+        try:
+            return backup_core.list_backups()
+        except backup_core.BackupError as exc:
+            raise SetupError(str(exc)) from exc
     raise SetupError("Unbekannte Setup-Aktion.")
 
 
