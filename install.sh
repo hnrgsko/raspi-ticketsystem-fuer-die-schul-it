@@ -4,7 +4,7 @@ set -Eeuo pipefail
 PROJECT_SLUG="raspi-ticketsystem-fuer-die-schul-it"
 PROJECT_REPO="hnrgsko/${PROJECT_SLUG}"
 SOURCE_REF="${SCHULIT_SOURCE_REF:-main}"
-INSTALL_VERSION="0.3.0-dev"
+INSTALL_VERSION="0.3.1-dev"
 
 log() { printf '\n[schulit] %s\n' "$*"; }
 die() { printf '\n[schulit] FEHLER: %s\n' "$*" >&2; exit 1; }
@@ -58,6 +58,7 @@ run_step "Pakete installieren" "${SCRIPT_DIR}/installer/packages.sh"
 run_step "Dateisystem vorbereiten" "${SCRIPT_DIR}/installer/filesystem.sh"
 run_step "MariaDB absichern" "${SCRIPT_DIR}/installer/database.sh"
 run_step "Setup-Systemdienst einrichten" "${SCRIPT_DIR}/installer/setup-service.sh"
+run_step "Backup-Dienst vorbereiten" "${SCRIPT_DIR}/installer/backup-service.sh"
 run_step "Apache-Setupseite einrichten" "${SCRIPT_DIR}/installer/webserver.sh"
 run_step "Installation prüfen" "${SCRIPT_DIR}/installer/verify.sh"
 
