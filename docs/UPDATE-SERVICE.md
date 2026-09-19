@@ -113,19 +113,37 @@ Die Prüfung darf auch manuell über „Jetzt nach Updates suchen“ ausgelöst 
 
 ## Benachrichtigung
 
-Die Meldung soll mindestens an zwei Stellen erscheinen:
+Die Update-Meldung muss im normalen Adminbereich des Ticketsystems sichtbar sein. Die Systemverwaltung allein reicht nicht aus, weil sie im täglichen Betrieb möglicherweise nur selten geöffnet wird.
 
 ### Ticket-Administration
 
-Unaufdringlicher Banner für Administratoren:
+Für berechtigte Administratoren erscheint bei einer verfügbaren neuen Version ein gut sichtbarer, aber nicht störender Banner oberhalb der normalen Ticketansicht:
 
-> Eine neue Version 1.4.2 ist verfügbar. Änderungen ansehen · Update installieren
+> **Neue Version 1.4.2 verfügbar**
+>
+> Dieses Update enthält Verbesserungen und Fehlerbehebungen.
+>
+> [Änderungen ansehen] [Später] [Update installieren]
 
-Bearbeiter oder Leser ohne Systemrechte sollen die Installation nicht starten können.
+Der Banner soll auf allen zentralen Adminseiten sichtbar bleiben, bis einer der folgenden Zustände eintritt:
+
+- Update wurde installiert.
+- Administrator hat die Meldung für die aktuelle Sitzung bzw. bis zur nächsten Updateprüfung geschlossen.
+- Version wurde zurückgezogen oder ist nicht mehr für den verwendeten Updatekanal verfügbar.
+
+Im Adminbereich soll zusätzlich dauerhaft eine kleine Versionsanzeige vorhanden sein, beispielsweise im Footer oder im Account-/Systemmenü:
+
+`Version 1.4.1 · Update verfügbar`
+
+Ist kein Update verfügbar:
+
+`Version 1.4.1 · aktuell`
+
+Nur Benutzer mit System-Update-Berechtigung dürfen „Update installieren“ auslösen. Andere Backend-Benutzer können optional nur den Hinweis „Neue Version verfügbar“ sehen oder gar keinen Updatehinweis erhalten; dies wird über Rollenrechte festgelegt.
 
 ### Systemverwaltung
 
-Detaillierte Updatekarte mit:
+Die Systemverwaltung enthält zusätzlich die vollständige Updatekarte mit:
 
 - installierter Version
 - verfügbarer Version
@@ -136,6 +154,15 @@ Detaillierte Updatekarte mit:
 - letztem Prüfzeitpunkt
 - letztem erfolgreichen Backup
 - Status des Updaters
+- Signaturstatus
+- benötigten Datenbankmigrationen
+- Neustartanforderungen
+- Updateverlauf
+
+Damit gilt:
+
+- **Adminbereich:** Hinweis sehen und Update bequem starten.
+- **Systemverwaltung:** technische Details, Verlauf, Diagnose und Rollback.
 
 Optional kann später zusätzlich eine E-Mail an Systemadministratoren versendet werden.
 
