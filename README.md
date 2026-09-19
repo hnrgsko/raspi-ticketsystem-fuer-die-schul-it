@@ -13,6 +13,7 @@ Der gewünschte Standardablauf ist:
 3. Installer über einen Download oder einen einzigen Konsolenbefehl starten.
 4. Die restliche Einrichtung in einem geführten Web-Assistenten durchführen.
 5. Das Ticketsystem über eine schulindividuelle Domain oder Subdomain sicher von außen erreichbar machen.
+6. Spätere Programmupdates direkt aus der Systemverwaltung installieren.
 
 Für erfahrene Administratoren bleiben erweiterte Einstellungen zugänglich. Für Einsteiger soll die Standardinstallation so wenig Fachwissen wie möglich voraussetzen.
 
@@ -83,6 +84,22 @@ Die öffentliche Projektseite ist Bestandteil des Produkts. Sie soll bei Null be
 
 Die Landingpage soll unterschiedliche Einstiege anbieten, z. B. „Ich habe noch kein Raspberry Pi OS installiert“, „Ich sitze direkt am Raspberry Pi“ und „Ich verwalte den Pi per SSH“.
 
+## Update-Service
+
+Jede installierte Instanz soll selbstständig auf neue stabile Releases prüfen.
+
+Wenn eine neue Version verfügbar ist, erscheint in der Ticket-Administration und der Systemverwaltung eine Meldung:
+
+> **Eine neue Version ist verfügbar. Möchten Sie das Update installieren?**
+
+Der Administrator kann Versionshinweise ansehen, das Update installieren oder die Meldung zunächst schließen.
+
+Nach Bestätigung soll die Instanz das freigegebene Update automatisch herunterladen, kryptografisch prüfen, ein Backup erstellen, Datenbankmigrationen anwenden, die Anwendung aktualisieren und anschließend einen Systemtest durchführen.
+
+Updates werden nicht allein deshalb installiert, weil sie verfügbar sind. Eine automatische Installation ohne Bestätigung ist im Standardmodus nicht vorgesehen.
+
+Das genaue Sicherheits- und Rollbackkonzept ist in [docs/UPDATE-SERVICE.md](docs/UPDATE-SERVICE.md) dokumentiert.
+
 ## Systemverwaltung
 
 Neben dem eigentlichen Ticket-Adminbereich ist eine separate Systemverwaltung vorgesehen. Dort sollen Administratoren später unter anderem sehen bzw. steuern können:
@@ -93,7 +110,9 @@ Neben dem eigentlichen Ticket-Adminbereich ist eine separate Systemverwaltung vo
 - Tunnel
 - Domain
 - Speicherplatz
-- Updates
+- installierte Version
+- verfügbare Updates
+- Updateverlauf
 - Backups und Wiederherstellung
 - Diagnose
 - Logs
@@ -113,4 +132,7 @@ Die schulneutrale, portable Raspberry-Pi-Version wird ausschließlich in diesem 
 
 Aktuell: Produktarchitektur und Installationsweg werden festgelegt. Noch keine produktive Installation aus diesem Repository durchführen.
 
-Siehe auch: [Produkt- und Installationskonzept](docs/PRODUKTKONZEPT.md).
+Siehe auch:
+
+- [Produkt- und Installationskonzept](docs/PRODUKTKONZEPT.md)
+- [Update-Service](docs/UPDATE-SERVICE.md)
