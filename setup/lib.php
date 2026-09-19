@@ -208,3 +208,39 @@ function schulit_format_bytes(int $bytes): string
     }
     return ($index >= 3 ? number_format($value, 1, ',', '.') : number_format($value, 0, ',', '.')) . ' ' . $units[$index];
 }
+
+
+function schulit_encode_restore_selection(array $selection): string
+{
+    $json = json_encode([
+        'device_uuid' => (string)($selection['device_uuid'] ?? ''),
+        'school_id' => (string)($selection['school_id'] ?? ''),
+        'manifest' => (string)($selection['manifest'] ?? ''),
+    ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+    return rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
+}
+
+function schulit_decode_restore_selection(string $encoded): array
+{
+    if ($encoded === '' || strlen($encoded) > 2048 || preg_match('/\A[A-Za-z0-9_-]+\z/', $encoded) !== 1) {
+        throw new InvalidArgumentException('Ungültige Backup-Auswahl.');
+    }
+
+    $padding = (4 - (strlen($encoded) % 4)) % 4;
+    $decoded = base64_decode(strtr($encoded . str_repeat('=', $padding), '-_', '+/'), true);
+    if (!is_string($decoded)) {
+        throw new InvalidArgumentException('Ungültige Backup-Auswahl.');
+    }
+
+    $value = json_decode($decoded, true, 8, JSON_THROW_ON_ERROR);
+    if (!is_array($value)) {
+        throw new InvalidArgumentException('Ungültige Backup-Auswahl.');
+    }
+
+    return [
+        'device_uuid' => (string)($value['device_uuid'] ?? ''),
+        'school_id' => (string)($value['school_id'] ?? ''),
+        'manifest' => (string)($value['manifest'] ?? ''),
+    ];
+}
