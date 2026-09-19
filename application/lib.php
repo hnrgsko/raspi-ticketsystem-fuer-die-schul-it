@@ -360,26 +360,73 @@ function app_admin_user(PDO $db): ?array
 
 function app_admin_tickets(PDO $db, array $filters): array
 {
-    $conditions = ['1=1'];
+    $conditions = [];
     $params = [];
+
     $archive = ($filters['view'] ?? '') === 'archive';
     $conditions[] = $archive ? 't.archived_at IS NOT NULL' : 't.archived_at IS NULL';
 
-    foreach (['status' => ['new','in_progress','awaiting_reply','done'], 'priority' => ['low','normal','high']] as $key => $allowed) {
-        $value = $filters[$key] ?? '';
-        if (is_string($value) && in_array($value, $allowed, true)) {
-            $conditions[] = "t.{$key}=:{$key}";
-            $params[$key] = $value;
-        }
+    $status = $filters['status'] ?? '';
+    if (is_string($status) && in_array($status, ['new','in_progress','awaiting_reply','done'], true)) {
+        $conditions[] = 't.status=:status';
+        $params['status'] = $status;
     }
 
+    $priority = $filters['priority'] ?? '';
+    if (is_string($priority) && in_array($priority, ['low','normal','high'], true)) {
+        $conditions[] = 't.priority=:priority';
+        $params['priority'] = $priority;
+    }
+
+    $type = $filters['type'] ?? '';
+    if (is_string($type) && in_array($type, ['support','defect'], true)) {
+        $conditions[] = 't.type=:type';
+        $params['type'] = $type;
+    }
+
+    $category = $filters['category'] ?? '';
+    if (is_string($category) && preg_match('/\A[1-9][0-9]{0,18}\z/', $category) === 1) {
+        $conditions[] = 't.category_id=:category';
+        $params['category'] = $category;
+    }
+
+    $search = is_string($filters['q'] ?? null) ? trim($filters['q']) : '';
+    if ($search !== '' && mb_strlen($search) <= 200) {
+        $needle = '%' . $search . '%';
+        $parts = [];
+        foreach (['reporter_name','reporter_abbreviation','location','device','description','defect_subject'] as $index => $column) {
+            $key = 'search_' . $index;
+            $parts[] = "COALESCE(t.{$column},'') LIKE :{$key}";
+            $params[$key] = $needle;
+        }
+        $parts[] = 'c.name LIKE :search_category';
+        $params['search_category'] = $needle;
+
+        $number = ltrim(ltrim($search, "# \t\n\r\0\x0B"), '0');
+        if (preg_match('/\A[1-9][0-9]{0,18}\z/', $number) === 1) {
+            $parts[] = 't.id=:search_id';
+            $params['search_id'] = $number;
+        }
+        $conditions[] = '(' . implode(' OR ', $parts) . ')';
+    }
+
+    $sort = is_string($filters['sort'] ?? null) ? $filters['sort'] : 'priority';
+    $order = match ($sort) {
+        'newest' => 't.created_at DESC,t.id DESC',
+        'oldest' => 't.created_at ASC,t.id ASC',
+        'updated' => 't.updated_at DESC,t.id DESC',
+        default => "CASE WHEN t.status='done' THEN 1 ELSE 0 END,
+            CASE t.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
+            CASE t.status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'awaiting_reply' THEN 2 ELSE 3 END,
+            t.queue_position ASC,t.created_at ASC,t.id ASC",
+    };
+
     $sql = "SELECT t.id,t.type,t.priority,t.status,t.reporter_name,t.reporter_abbreviation,
-                   t.location,t.device,t.created_at,t.updated_at,t.archived_at,c.name AS category_name
+                   t.location,t.device,t.queue_position,t.created_at,t.status_changed_at,
+                   t.updated_at,t.archived_at,c.name AS category_name
             FROM tickets t JOIN categories c ON c.id=t.category_id
             WHERE " . implode(' AND ', $conditions) . "
-            ORDER BY CASE t.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
-                     CASE t.status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'awaiting_reply' THEN 2 ELSE 3 END,
-                     t.queue_position,t.created_at";
+            ORDER BY " . $order;
     $q = $db->prepare($sql);
     $q->execute($params);
     return $q->fetchAll();
