@@ -28,6 +28,7 @@ UPLOADS_DIR = pathlib.Path("/var/lib/schulit/uploads")
 RUN_DIR = pathlib.Path("/run/schulit")
 
 DB_NAME = "schulit"
+DB_USER = "schulit_app"
 
 
 class BackupError(Exception):
