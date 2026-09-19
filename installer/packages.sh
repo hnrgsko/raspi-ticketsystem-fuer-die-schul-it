@@ -36,7 +36,9 @@ apt-get update
 info "Benötigte Serverpakete werden installiert ..."
 apt-get install -y --no-install-recommends "${packages[@]}"
 
-systemctl enable --now apache2
+# Apache is enabled here but started only after our own listener is configured.
+# This prevents a conflict with another service already using port 80.
+systemctl enable apache2 >/dev/null
 systemctl enable --now mariadb
 systemctl enable --now avahi-daemon
 
