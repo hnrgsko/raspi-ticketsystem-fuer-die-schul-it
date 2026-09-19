@@ -192,3 +192,19 @@ function schulit_admin_password(string $password, string $confirmation): string
     }
     return $hash;
 }
+
+
+function schulit_format_bytes(int $bytes): string
+{
+    if ($bytes <= 0) {
+        return 'unbekannt';
+    }
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $value = (float)$bytes;
+    $index = 0;
+    while ($value >= 1024 && $index < count($units) - 1) {
+        $value /= 1024;
+        $index++;
+    }
+    return ($index >= 3 ? number_format($value, 1, ',', '.') : number_format($value, 0, ',', '.')) . ' ' . $units[$index];
+}
