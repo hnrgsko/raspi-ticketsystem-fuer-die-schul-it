@@ -236,6 +236,8 @@ Neu vorhanden:
 - ausstehende Datenbankmigrationen bei Installer-Updates
 - Kollegiums-Zugangstoken wird verschlüsselt mitgesichert
 
+Ticketanlage und Statusabfrage auf echter Hardware erfolgreich bestätigt. Offen für den vollständigen Phase-4a-Test sind noch Admin-Login, Status/Priorität, interne Notiz und Archivierung.
+
 Dokumentation: [Phase 4a – Lokales Ticketsystem](docs/PHASE-4A-LOCAL-TICKETS.md)
 
 **Noch nicht für produktive Schuldaten verwenden.**
