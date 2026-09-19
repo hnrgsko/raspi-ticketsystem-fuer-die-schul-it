@@ -98,3 +98,33 @@ Der verbindliche Hardwaretest lautet:
 7. wiederhergestellte Schule, Admin, Datenbank und Backupstatus prüfen
 
 Die funktionierende Ausgangs-SD-Karte bleibt während dieses Tests unverändert als Rückfalloption erhalten.
+
+
+## Nicht-destruktiver Wiederherstellungstest
+
+Falls kein zweiter Boot-Datenträger verfügbar ist, kann die laufende Installation einen vorhandenen Backupstand vollständig prüfen, ohne ihn einzuspielen.
+
+Der Test führt aus:
+
+- Manifestprüfung
+- SHA-256-Prüfung des verschlüsselten Archivs
+- Prüfung des Recovery-Codes
+- Entschlüsselung des geschützten age-Identitätsschlüssels
+- Entschlüsselung des Backuparchivs
+- sichere Tar-Pfadprüfung
+- Prüfung der internen Backup-Metadaten
+- Prüfung der Schulkennung
+- Prüfung der Anwendungskonfiguration
+- Prüfung des Datenbankdumps und der erforderlichen Restore-Dateien
+
+Alle entschlüsselten Testdaten liegen ausschließlich temporär unter `/run/schulit/` und werden nach dem Test entfernt.
+
+Der Test verändert ausdrücklich nicht:
+
+- die laufende MariaDB-Datenbank
+- die installierte Konfiguration
+- den System-Administrator
+- die Uploads
+- den registrierten Backupstand
+
+Dieser Test ersetzt den späteren vollständigen Katastrophentest auf einem frischen Boot-Datenträger nicht, gibt aber bereits eine hohe Sicherheit, dass Backup, Recovery-Code und Entschlüsselungskette funktionieren.
