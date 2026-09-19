@@ -1,5 +1,7 @@
 name: Phase 1 checks
 
+# Validates the current installer tree on every workflow change/push.
+
 on:
   push:
     branches: [main]
