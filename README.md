@@ -166,6 +166,7 @@ Dokumentation:
 - [Phase 3a – USB-Backupmedium registrieren](docs/PHASE-3-USB-BACKUP.md)
 - [Phase 3b – Verschlüsselte Backups](docs/PHASE-3B-ENCRYPTED-BACKUP.md)
 - [Phase 3c – Wiederherstellung](docs/PHASE-3C-RESTORE.md)
+- [Phase 4a – Lokales Ticketsystem](docs/PHASE-4A-LOCAL-TICKETS.md)
 
 ### Phase 3a – auf Raspberry Pi 4 erfolgreich real getestet
 
@@ -217,6 +218,25 @@ Neu vorhanden:
 Nicht-destruktiver Restore-Test auf echter Hardware erfolgreich bestätigt: SHA-256, Recovery-Code, age-Entschlüsselung, sichere Archivprüfung, Konfiguration und Datenbankdump. Das laufende System wurde dabei nicht verändert. Der vollständige Katastrophentest auf einem frischen Boot-Datenträger bleibt noch offen.
 
 Dokumentation: [Phase 3c – Wiederherstellung](docs/PHASE-3C-RESTORE.md)
+
+### Phase 4a – implementiert, nächster Realtest
+
+Neu vorhanden:
+
+- schulneutrales Ticketdatenmodell
+- lokale Kollegiumsseite auf Port `8081`
+- geheimer Zugangslink mit Zufallstoken
+- Token verschwindet nach erfolgreichem Einstieg aus der URL
+- Support- und Defekt-Ticketformular
+- Name **und** Kürzel, keine E-Mail
+- Ticketnummer + Statusabfrage über Schulkennung
+- lokaler Ticket-Admin unter `/admin/`
+- Rollenbasis `system_admin` / `ticket_admin`
+- Status, Priorität, interne Notizen und Archiv
+- ausstehende Datenbankmigrationen bei Installer-Updates
+- Kollegiums-Zugangstoken wird verschlüsselt mitgesichert
+
+Dokumentation: [Phase 4a – Lokales Ticketsystem](docs/PHASE-4A-LOCAL-TICKETS.md)
 
 **Noch nicht für produktive Schuldaten verwenden.**
 Siehe auch:
