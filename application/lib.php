@@ -18,6 +18,16 @@ function app_is_https(): bool
     return $forwarded === 'https';
 }
 
+function app_current_host(): string
+{
+    $raw = trim((string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_ADDR'] ?? '127.0.0.1'));
+    if (str_starts_with($raw, '[')) {
+        $end = strpos($raw, ']');
+        return $end === false ? '127.0.0.1' : substr($raw, 0, $end + 1);
+    }
+    return preg_replace('/:\d+\z/', '', $raw) ?: '127.0.0.1';
+}
+
 function app_start_session(string $directory, string $name): void
 {
     if (!is_dir($directory)) {
@@ -418,7 +428,7 @@ function app_admin_update_ticket(PDO $db, string $id, string $adminId, array $in
 
         $update = $db->prepare(
             "UPDATE tickets SET status=:status,priority=:priority,
-             status_changed_at=CASE WHEN status<>:status2 THEN UTC_TIMESTAMP(6) ELSE status_changed_at END,
+             status_changed_at=CASE WHEN :status_changed=1 THEN UTC_TIMESTAMP(6) ELSE status_changed_at END,
              resolved_at=CASE WHEN :done=1 THEN COALESCE(resolved_at,UTC_TIMESTAMP(6)) ELSE NULL END,
              updated_at=UTC_TIMESTAMP(6)
              WHERE id=:id"
@@ -426,7 +436,7 @@ function app_admin_update_ticket(PDO $db, string $id, string $adminId, array $in
         $update->execute([
             'status' => $status,
             'priority' => $priority,
-            'status2' => $status,
+            'status_changed' => $ticket['status'] !== $status ? 1 : 0,
             'done' => $status === 'done' ? 1 : 0,
             'id' => $id,
         ]);
