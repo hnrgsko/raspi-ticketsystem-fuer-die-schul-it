@@ -578,6 +578,20 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
             return backup_core.list_backups()
         except backup_core.BackupError as exc:
             raise SetupError(str(exc)) from exc
+    if action == "discover_restore_backups":
+        try:
+            return backup_core.discover_restore_backups()
+        except backup_core.BackupError as exc:
+            raise SetupError(str(exc)) from exc
+    if action == "restore_backup":
+        selection = request.get("selection")
+        code = request.get("recovery_code")
+        if not isinstance(selection, dict) or not isinstance(code, str):
+            raise SetupError("Ungültige Wiederherstellungsdaten.")
+        try:
+            return backup_core.restore_backup(selection, code)
+        except backup_core.BackupError as exc:
+            raise SetupError(str(exc)) from exc
     raise SetupError("Unbekannte Setup-Aktion.")
 
 
