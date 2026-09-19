@@ -38,7 +38,7 @@ check "MariaDB läuft" systemctl is-active mariadb
 check "MariaDB lokal erreichbar" mariadb --protocol=socket -e "SELECT 1;"
 check "Setup-Systemdienst läuft" systemctl is-active schulit-setupd.service
 check "Setup-Systemsocket vorhanden" test -S /run/schulit/setupd.sock
-check "USB-Erkennung antwortet" python3 -c 'import json,socket; s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.settimeout(3); s.connect("/run/schulit/setupd.sock"); s.sendall(b"{\"action\":\"list_backup_devices\"}\\n"); data=s.recv(131072); r=json.loads(data.decode()); raise SystemExit(0 if r.get("ok") is True and isinstance(r.get("devices"), list) else 1)'
+check "USB-Erkennung antwortet" python3 -c 'import json,socket; s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.settimeout(3); s.connect("/run/schulit/setupd.sock"); s.sendall(b"{\"action\":\"list_backup_devices\"}\n"); data=s.recv(131072); r=json.loads(data.decode()); raise SystemExit(0 if r.get("ok") is True and isinstance(r.get("devices"), list) else 1)'
 check "age verfügbar" age --version
 check "Python-Kryptografie verfügbar" python3 -c 'from cryptography.hazmat.primitives.ciphers.aead import AESGCM'
 check "Backup-Timer installiert" systemctl cat schulit-backup.timer
