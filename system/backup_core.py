@@ -523,6 +523,8 @@ def list_backups() -> dict[str, Any]:
             except (OSError, json.JSONDecodeError):
                 continue
             if isinstance(item, dict) and item.get("format") == "schulit-backup-manifest-v1":
+                item = dict(item)
+                item["manifest"] = path.name
                 items.append(item)
     return {"ok": True, "backups": items}
 
