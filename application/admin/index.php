@@ -359,6 +359,12 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <p class="notice">Die Nutzungsstatistik wird nach Anwendung der Statistik-Migration verfügbar.</p>
 <?php else: ?>
 <p class="muted stats-explainer">„Nutzungen“ sind Öffnungen bzw. tatsächliche Einstiege. „Sitzungen“ werden pro Zugangsweg und Kalendertag höchstens einmal je Browsersitzung gezählt. Dieselbe Sitzung kann mehrere Zugangswege verwenden.</p>
+<?php $afterAssistant = $usageSummary['ticket_after_assistant'] ?? []; ?>
+<div class="stats-highlight">
+  <div><span>Tickets nach Assistent-Nutzung · 30 Tage</span><strong><?= (int)($afterAssistant['30d']['events'] ?? 0) ?></strong></div>
+  <div><span>Tickets nach Assistent-Nutzung · Gesamt</span><strong><?= (int)($afterAssistant['all']['events'] ?? 0) ?></strong></div>
+  <p>Gezählt wird nur, wenn in derselben Browsersitzung zuvor einer der Assistenten-Zugänge genutzt wurde. Es werden keine Personen identifiziert.</p>
+</div>
 <div class="stats-assistant-grid">
 <?php
 $statLabels = [
@@ -385,7 +391,7 @@ foreach ($statLabels as $metric=>$meta):
 <h2>Verlauf der letzten 30 Tage</h2>
 <div class="stats-table-wrap">
 <table class="stats-table">
-<thead><tr><th>Tag</th><th>Tickets</th><th>Inline-Chat</th><th>Sprechblase</th><th>Extern</th></tr></thead>
+<thead><tr><th>Tag</th><th>Tickets</th><th>Inline-Chat</th><th>Sprechblase</th><th>Extern</th><th>Ticket nach KI</th></tr></thead>
 <tbody>
 <?php foreach (array_reverse($usageDaily) as $day): ?>
 <tr>
@@ -394,6 +400,7 @@ foreach ($statLabels as $metric=>$meta):
 <td><?= (int)$day['assistant_inline_use'] ?></td>
 <td><?= (int)$day['assistant_bubble_open'] ?></td>
 <td><?= (int)$day['assistant_external_open'] ?></td>
+<td><?= (int)$day['ticket_after_assistant'] ?></td>
 </tr>
 <?php endforeach; ?>
 </tbody>
