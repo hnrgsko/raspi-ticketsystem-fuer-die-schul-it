@@ -409,3 +409,18 @@ Implementiert, nächster Realtest:
 - Statistik für FAQ-Nutzung und Tickets trotz vorheriger FAQ
 
 Dokumentation: [Phase 5f – FAQ-Self-Service](docs/PHASE-5F-FAQ-SELF-SERVICE.md)
+
+
+## Gesamttest 0.5
+
+Für den ersten zusammenhängenden Hardwaretest nach den Phasen 4b–5f gibt es einen vollständigen Ablaufplan:
+
+[Gesamttest Version 0.5 – Raspberry Pi](docs/TESTPLAN-0.5.md)
+
+Bei einem Fehler kann nach dem Update das datensparsame Diagnosekommando verwendet werden:
+
+```bash
+sudo schulit-diagnostics
+```
+
+Es gibt keine Passwörter, Access-Tokens, Recovery-Codes, Tunnel-Tokens oder Ticketinhalte aus.
