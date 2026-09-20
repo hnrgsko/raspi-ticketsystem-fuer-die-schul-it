@@ -127,3 +127,21 @@ Neue bzw. erweiterte Daten:
 8. Prüfen, ob der Ticketzähler der FAQ steigt.
 9. Einen individuellen Hardwaredefekt mit Inventarnummer lösen.
 10. Prüfen, ob **Bitte kurz prüfen** vorgeschlagen wird.
+
+
+## Hardwaretest Raspberry Pi 4 – Teiltest 1
+
+Am 20.09.2026 auf echter Hardware bestätigt:
+
+- Ticket mit interner Lösungsnotiz auf **Erledigt** gesetzt
+- FAQ-Entwurf wurde automatisch erzeugt
+- Autopilot bewertete den Fall als **Neue FAQ sinnvoll**
+
+Noch offen in diesem Testblock:
+
+- Veröffentlichung des Entwurfs
+- Anzeige auf der Kollegiumsseite
+- zweites ähnliches Ticket
+- Erkennung **Bestehende FAQ wahrscheinlich**
+- Zusammenführen / Aktualisieren einer bestehenden FAQ
+- Erhöhung des verknüpften Ticketzählers
