@@ -16,6 +16,37 @@ check() {
   fi
 }
 
+check_file_meta() {
+  local label="$1" path="$2" owner="$3" group="$4" mode="$5"
+  local actual_owner actual_group actual_mode
+
+  if [[ ! -e "${path}" ]]; then
+    printf '[schulit] ✗ %s (fehlt)\n' "${label}" >&2
+    failures=$((failures + 1))
+    return
+  fi
+
+  actual_owner="$(stat -c '%U' "${path}")"
+  actual_group="$(stat -c '%G' "${path}")"
+  actual_mode="$(stat -c '%a' "${path}")"
+
+  if [[ "${actual_owner}" == "${owner}" && "${actual_group}" == "${group}" && "${actual_mode}" == "${mode}" ]]; then
+    printf '[schulit] ✓ %s\n' "${label}"
+  else
+    printf '[schulit] ✗ %s (ist %s:%s %s, erwartet %s:%s %s)\n'       "${label}" "${actual_owner}" "${actual_group}" "${actual_mode}"       "${owner}" "${group}" "${mode}" >&2
+    failures=$((failures + 1))
+  fi
+}
+
+check_latest_migration() {
+  local latest
+  latest="$(find "${SCHULIT_SOURCE_ROOT}/database/migrations" -maxdepth 1 -type f -name '*.sql' -printf '%f\n'     | sed 's/\.sql$//' | sort | tail -n 1)"
+
+  [[ -n "${latest}" ]] || return 1
+
+  mariadb --protocol=socket --batch --skip-column-names schulit     -e "SELECT COUNT(*) FROM schema_migrations WHERE version='${latest}'"     | grep -qx '1'
+}
+
 check_setup_token() {
   local token cookiejar page
   token="$(cat /var/lib/schulit/setup/bootstrap-token)"
@@ -61,6 +92,12 @@ check_app_token() {
   rm -f "${cookiejar}" "${page}"
 }
 
+check_file_meta "/etc/schulit geschützt" /etc/schulit root www-data 710
+check_file_meta "Kollegiums-Zugangstoken geschützt" /etc/schulit/access-token root www-data 640
+check_file_meta "Öffentliche Sitzungen geschützt" /var/lib/schulit/sessions www-data www-data 700
+check_file_meta "Admin-Sitzungen geschützt" /var/lib/schulit/admin-sessions www-data www-data 700
+check_file_meta "Uploads für Webprozess beschreibbar" /var/lib/schulit/uploads www-data www-data 750
+
 check "Apache-Konfiguration" apache2ctl configtest
 check "Apache läuft" systemctl is-active apache2
 check "MariaDB läuft" systemctl is-active mariadb
@@ -80,7 +117,11 @@ check "Setup-Seite erreichbar" curl --fail --silent --show-error http://127.0.0.
 check "Ticketsystem auf Port 8081 erreichbar" curl --fail --silent --show-error http://127.0.0.1:8081/
 check "Ticket-Admin erreichbar" curl --fail --silent --show-error http://127.0.0.1:8081/admin/
 if [[ -f /var/lib/schulit/setup/installation.json ]]; then
+  check_file_meta "Datenbankkonfiguration geschützt" /etc/schulit/app.php root www-data 640
+  check_file_meta "Installationsstatus geschützt" /var/lib/schulit/setup/installation.json root www-data 640
+  check_file_meta "Recovery-Prüfwert geschützt" /var/lib/schulit/recovery/recovery.json root root 600
   check "Anwendungsdatenbank über Web-Konfiguration erreichbar" runuser -u www-data -- php -r "require '/opt/schulit/application/lib.php'; \$db=app_database(); exit(app_tables_ready(\$db) ? 0 : 1);"
+  check "Neueste Datenbankmigration angewendet" check_latest_migration
 fi
 check_setup_token
 check_app_token
