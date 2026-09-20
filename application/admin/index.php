@@ -3,11 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/lib.php';
 
-header('Cache-Control: no-store, private');
-header('Pragma: no-cache');
-header('Referrer-Policy: no-referrer');
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
+app_security_headers();
 header('X-Robots-Tag: noindex, nofollow');
 
 app_start_session(SCHULIT_ADMIN_SESSIONS, 'schulit_admin');
