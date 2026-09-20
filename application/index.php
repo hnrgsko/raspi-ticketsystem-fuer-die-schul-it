@@ -100,8 +100,16 @@ $assistantWidgetActive = $authorized
     <div class="brand">Schul-IT Ticketsystem</div>
     <div class="school"><?= app_escape($schoolName) ?></div>
   </div>
-  <?php if ($authorized): ?><nav><a href="/">Tickets</a><?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a<?= $assistantWidgetActive ? ' data-assistant-open' : ' data-usage-event="assistant_external_open"' ?> href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?></nav><?php endif; ?>
 </header>
+
+<?php if ($authorized && $ready && $type === ''): ?>
+<nav class="public-anchor-nav" aria-label="Schnellnavigation auf dieser Seite">
+  <?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a href="#assistant-section">KI-Assistent</a><?php endif; ?>
+  <a href="#ticket-section">Ticket aufgeben</a>
+  <?php if ($faqReady): ?><a href="#faq-section">FAQ</a><?php endif; ?>
+  <a href="#ticketstatus-section">Ticketstatus</a>
+</nav>
+<?php endif; ?>
 
 <?php if (!$authorized): ?>
 <section class="card">
@@ -143,7 +151,7 @@ $assistantWidgetActive = $authorized
 <h1>Wie können wir helfen?</h1>
 <?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?>
 <p class="muted">Nutze zuerst den <?= app_escape((string)$assistant['label']) ?> für eine direkte Hilfestellung. Wenn dein Problem damit nicht gelöst wird, kannst du anschließend ein Ticket aufgeben.</p>
-<section class="assistant-intro" aria-labelledby="assistant-title">
+<section class="assistant-intro page-anchor-target" id="assistant-section" aria-labelledby="assistant-title">
   <span class="label">Empfohlener erster Schritt</span>
   <h2 id="assistant-title"><?= app_escape((string)$assistant['label']) ?> fragen</h2>
   <p>Beschreibe dein Problem möglichst konkret. Der Assistent kann dir direkt bei typischen Fragen zu Anwendungen, Geräten oder Zugängen helfen.</p>
@@ -172,7 +180,7 @@ $assistantWidgetActive = $authorized
 <?php else: ?>
 <p class="muted">Wähle, ob du Hilfe bei einem IT-Problem brauchst oder einen Defekt melden möchtest.</p>
 <?php endif; ?>
-<div class="grid">
+<div class="grid page-anchor-target" id="ticket-section">
   <div class="choice">
     <h2>Hilfe / Problem</h2>
     <p class="muted">Software, Zugang, WLAN, Schulportal, Geräte oder andere IT-Fragen.</p>
@@ -187,7 +195,7 @@ $assistantWidgetActive = $authorized
 </section>
 
 <?php if ($faqReady): ?>
-<section class="card public-faq" aria-labelledby="public-faq-title">
+<section class="card public-faq page-anchor-target" id="faq-section" aria-labelledby="public-faq-title">
 <h2 id="public-faq-title">Häufige Fragen</h2>
 <p class="muted">Kurze Lösungen für wiederkehrende IT-Probleme aus bereits bearbeiteten Anfragen.</p>
 
@@ -197,7 +205,7 @@ $assistantWidgetActive = $authorized
 <div class="faq-list">
 <?php foreach ($publicFaq as $faq): ?>
 <details class="faq-item">
-<summary><?= app_escape((string)$faq['question']) ?></summary>
+<summary><span class="faq-question-text"><?= app_escape((string)$faq['question']) ?></span></summary>
 <div class="faq-answer">
 <?php if (!empty($faq['category_name'])): ?><span class="label"><?= app_escape((string)$faq['category_name']) ?></span><?php endif; ?>
 <p><?= nl2br(app_escape((string)$faq['answer'])) ?></p>
@@ -210,7 +218,7 @@ $assistantWidgetActive = $authorized
 </section>
 <?php endif; ?>
 
-<section class="card">
+<section class="card page-anchor-target" id="ticketstatus-section">
 <h2>Ticketstatus prüfen</h2>
 <form method="post">
 <input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
