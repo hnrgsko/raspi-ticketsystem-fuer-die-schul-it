@@ -77,6 +77,26 @@ function app_is_https(): bool
     return $forwarded === 'https';
 }
 
+function app_security_headers(bool $privateNoStore = true): void
+{
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: no-referrer');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+    header('X-Permitted-Cross-Domain-Policies: none');
+
+    if ($privateNoStore) {
+        header('Cache-Control: no-store, private');
+        header('Pragma: no-cache');
+    }
+
+    // Only advertise HSTS when the browser-facing request is actually HTTPS.
+    // Local HTTP access on ports 8080/8081 must remain usable.
+    if (app_is_https()) {
+        header('Strict-Transport-Security: max-age=31536000');
+    }
+}
+
 function app_current_host(): string
 {
     $raw = trim((string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_ADDR'] ?? '127.0.0.1'));
