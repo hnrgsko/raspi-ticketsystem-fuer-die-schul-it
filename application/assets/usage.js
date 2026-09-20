@@ -6,7 +6,14 @@
     if (!csrf) return;
 
     const record = (metric) => {
-        if (!['assistant_inline_use', 'assistant_bubble_open', 'assistant_external_open'].includes(metric)) return;
+        if (![
+            'assistant_inline_use',
+            'assistant_bubble_open',
+            'assistant_external_open',
+            'faq_public_open',
+            'faq_suggestion_open',
+            'faq_suggestion_helpful'
+        ].includes(metric)) return;
         const data = new FormData();
         data.append('csrf', csrf);
         data.append('metric', metric);
@@ -31,6 +38,15 @@
         if (!target) return;
         const metric = target.getAttribute('data-usage-event') || '';
         record(metric);
+    });
+
+    document.querySelectorAll('details[data-usage-open]').forEach((details) => {
+        let counted = false;
+        details.addEventListener('toggle', () => {
+            if (!details.open || counted) return;
+            counted = true;
+            record(details.getAttribute('data-usage-open') || '');
+        });
     });
 
     document.addEventListener('schulit-usage', (event) => {
