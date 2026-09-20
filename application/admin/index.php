@@ -106,7 +106,7 @@ if ($db instanceof PDO) {
 
 $filters = admin_filters($_GET);
 $section = is_string($_GET['section'] ?? null) ? $_GET['section'] : '';
-if ($section !== 'system') $section = '';
+if (!in_array($section, ['system','faq'], true)) $section = '';
 
 if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -188,6 +188,55 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'faq_from_ticket') {
+            $proposalId = app_faq_ticket_proposal(
+                $db,
+                (string)($_POST['ticket_id'] ?? ''),
+                (string)$user['id']
+            );
+            $_SESSION['admin_notice'] = 'FAQ-Entwurf wurde aus dem erledigten Ticket erzeugt.';
+            header('Location: /admin/?section=faq#faq-proposal-' . rawurlencode($proposalId), true, 303);
+            exit;
+        }
+
+        if ($action === 'faq_create') {
+            $proposalId = app_faq_admin_create_proposal($db, (string)$user['id'], $_POST);
+            $_SESSION['admin_notice'] = 'FAQ-Entwurf wurde angelegt und wartet auf Freigabe.';
+            header('Location: /admin/?section=faq#faq-proposal-' . rawurlencode($proposalId), true, 303);
+            exit;
+        }
+
+        if ($action === 'faq_publish') {
+            $proposalId = (string)($_POST['proposal_id'] ?? '');
+            app_faq_admin_publish($db, $proposalId, (string)$user['id'], $_POST);
+            $_SESSION['admin_notice'] = 'FAQ wurde veröffentlicht.';
+            header('Location: /admin/?section=faq', true, 303);
+            exit;
+        }
+
+        if ($action === 'faq_reject') {
+            app_faq_admin_reject(
+                $db,
+                (string)($_POST['proposal_id'] ?? ''),
+                (string)$user['id']
+            );
+            $_SESSION['admin_notice'] = 'FAQ-Vorschlag wurde verworfen.';
+            header('Location: /admin/?section=faq', true, 303);
+            exit;
+        }
+
+        if ($action === 'faq_entry_status') {
+            app_faq_admin_set_entry_status(
+                $db,
+                (string)($_POST['entry_id'] ?? ''),
+                (string)$user['id'],
+                (string)($_POST['entry_status'] ?? '')
+            );
+            $_SESSION['admin_notice'] = 'FAQ-Status wurde geändert.';
+            header('Location: /admin/?section=faq', true, 303);
+            exit;
+        }
+
         throw new RuntimeException('Unbekannte Aktion.');
     } catch (Throwable $caught) {
         $error = $caught->getMessage();
@@ -209,6 +258,9 @@ $assistant = ($db instanceof PDO) ? app_assistant_settings($db) : [
     'widget_enabled'=>false,
     'widget_url'=>null,
 ];
+$faqReady = $db instanceof PDO && app_faq_tables_ready($db);
+$faqPending = ($user !== null && $faqReady && $section === 'faq') ? app_faq_admin_pending($db) : [];
+$faqEntries = ($user !== null && $faqReady && $section === 'faq') ? app_faq_admin_entries($db) : [];
 $ticketId = is_string($_GET['ticket'] ?? null) ? $_GET['ticket'] : '';
 $detail = ($user !== null && $db instanceof PDO && $ticketId !== '' && $section === '')
     ? app_admin_ticket($db, $ticketId) : null;
@@ -264,12 +316,86 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <nav class="admin-primary-nav" aria-label="Adminbereiche">
 <a class="<?= $section==='' && $filters['view']==='active' ? 'active' : '' ?>" href="/admin/">Aktive Tickets</a>
 <a class="<?= $section==='' && $filters['view']==='archive' ? 'active' : '' ?>" href="/admin/?view=archive">Archiv</a>
+<?php if ($faqReady): ?><a class="<?= $section==='faq' ? 'active' : '' ?>" href="/admin/?section=faq">FAQ<?php if ($faqPending !== []): ?> (<?= count($faqPending) ?>)<?php endif; ?></a><?php endif; ?>
 <?php if (($user['role'] ?? '') === 'system_admin'): ?><a class="<?= $section==='system' ? 'active' : '' ?>" href="/admin/?section=system">System</a><?php endif; ?>
 <a href="/">Kollegiumsseite</a>
 <?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?>
 </nav>
 
-<?php if ($section === 'system' && ($user['role'] ?? '') === 'system_admin'): ?>
+<?php if ($section === 'faq' && $faqReady): ?>
+<section class="panel faq-admin-panel">
+<span class="label">Moderation</span>
+<h1>FAQ & Wissensaufbau</h1>
+<p>Erledigte Tickets und direkte Vorschläge werden zuerst als Entwurf gesammelt. Erst nach kurzer Prüfung werden Frage und Antwort für das Kollegium veröffentlicht.</p>
+
+<details class="faq-create-box">
+<summary>Neue FAQ-Frage direkt formulieren</summary>
+<form class="admin-form" method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="faq_create">
+<label for="new-faq-question">Problemfrage</label>
+<textarea id="new-faq-question" name="faq_question" maxlength="400" rows="3" required placeholder="z. B. Wie verbinde ich mein Dienst-iPad wieder mit dem WLAN?"></textarea>
+<label for="new-faq-answer">Lösungsentwurf (optional)</label>
+<textarea id="new-faq-answer" name="faq_answer" maxlength="8000" rows="6" placeholder="Kann auch erst in der Moderation ergänzt werden."></textarea>
+<label for="new-faq-category">Kategorie (optional)</label>
+<select id="new-faq-category" name="faq_category_id"><option value="">Keine feste Kategorie</option><?php foreach ($categories as $category): ?><option value="<?= app_escape((string)$category['id']) ?>"><?= app_escape((string)$category['name']) ?></option><?php endforeach; ?></select>
+<button type="submit">Als Entwurf anlegen</button>
+</form>
+</details>
+
+<h2>Zu moderieren<?php if ($faqPending !== []): ?> · <?= count($faqPending) ?><?php endif; ?></h2>
+<?php if ($faqPending === []): ?>
+<p class="notice">Aktuell warten keine FAQ-Vorschläge auf Moderation.</p>
+<?php else: ?>
+<div class="faq-moderation-list">
+<?php foreach ($faqPending as $proposal): ?>
+<article class="faq-moderation-card" id="faq-proposal-<?= app_escape((string)$proposal['id']) ?>">
+<div class="faq-moderation-meta">
+<span class="label"><?= $proposal['source_type']==='ticket' ? 'Aus Ticket' : ($proposal['source_type']==='colleague' ? 'Kollegiums-Vorschlag' : 'Admin-Vorschlag') ?></span>
+<?php if ($proposal['source_ticket_id'] !== null): ?><a href="/admin/?ticket=<?= rawurlencode((string)$proposal['source_ticket_id']) ?>"><?= app_escape(app_ticket_number((string)$proposal['source_ticket_id'])) ?> öffnen</a><?php endif; ?>
+</div>
+<form class="admin-form faq-review-form" method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="proposal_id" value="<?= app_escape((string)$proposal['id']) ?>">
+<label for="faq-question-<?= app_escape((string)$proposal['id']) ?>">Öffentliche Problemfrage</label>
+<textarea id="faq-question-<?= app_escape((string)$proposal['id']) ?>" name="faq_question" maxlength="400" rows="3" required><?= app_escape((string)$proposal['question']) ?></textarea>
+<label for="faq-answer-<?= app_escape((string)$proposal['id']) ?>">Öffentliche Antwort</label>
+<textarea id="faq-answer-<?= app_escape((string)$proposal['id']) ?>" name="faq_answer" maxlength="8000" rows="7" required><?= app_escape((string)($proposal['answer_draft'] ?? '')) ?></textarea>
+<?php if ($proposal['source_type']==='ticket' && !empty($proposal['answer_draft'])): ?><p class="warning faq-review-warning"><strong>Prüfen:</strong> Dieser Antwortentwurf kann aus einer internen Ticketnotiz stammen. Entferne Namen, interne Angaben und alles, was nicht öffentlich ins FAQ gehört.</p><?php endif; ?>
+<label for="faq-category-<?= app_escape((string)$proposal['id']) ?>">Kategorie</label>
+<select id="faq-category-<?= app_escape((string)$proposal['id']) ?>" name="faq_category_id"><option value="">Keine feste Kategorie</option><?php foreach ($categories as $category): ?><option value="<?= app_escape((string)$category['id']) ?>"<?= (string)($proposal['category_id'] ?? '')===(string)$category['id'] ? ' selected' : '' ?>><?= app_escape((string)$category['name']) ?></option><?php endforeach; ?></select>
+<div class="faq-review-actions">
+<button type="submit" name="action" value="faq_publish">Prüfen & veröffentlichen</button>
+<button type="submit" name="action" value="faq_reject" class="secondary-button" formnovalidate>Verwerfen</button>
+</div>
+</form>
+</article>
+<?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<h2>Veröffentlichte FAQ</h2>
+<?php if ($faqEntries === []): ?><p class="notice">Noch keine FAQ veröffentlicht.</p><?php else: ?>
+<div class="faq-admin-entries">
+<?php foreach ($faqEntries as $entry): ?>
+<article class="faq-entry-admin">
+<div><span class="status <?= $entry['status']==='published' ? 'status-done' : 'status-archived' ?>"><?= $entry['status']==='published' ? 'Veröffentlicht' : 'Inaktiv' ?></span><?php if (!empty($entry['category_name'])): ?> <span class="label"><?= app_escape((string)$entry['category_name']) ?></span><?php endif; ?></div>
+<h3><?= app_escape((string)$entry['question']) ?></h3>
+<p class="preserve"><?= nl2br(app_escape((string)$entry['answer'])) ?></p>
+<form method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="faq_entry_status">
+<input type="hidden" name="entry_id" value="<?= app_escape((string)$entry['id']) ?>">
+<input type="hidden" name="entry_status" value="<?= $entry['status']==='published' ? 'inactive' : 'published' ?>">
+<button type="submit" class="secondary-button"><?= $entry['status']==='published' ? 'Ausblenden' : 'Wieder veröffentlichen' ?></button>
+</form>
+</article>
+<?php endforeach; ?>
+</div>
+<?php endif; ?>
+</section>
+
+<?php elseif ($section === 'system' && ($user['role'] ?? '') === 'system_admin'): ?>
 <section class="panel">
 <span class="label">Optional</span>
 <h1>KI-Assistent</h1>
@@ -339,6 +465,22 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <textarea id="comment" name="comment" maxlength="5000" rows="5"></textarea>
 <button type="submit">Änderungen speichern</button>
 </form></section>
+<?php endif; ?>
+
+<?php if ($faqReady): ?>
+<section class="edit-box"><h2>FAQ aus diesem Ticket</h2>
+<?php if ($detail['status'] === 'done'): ?>
+<p>Erzeuge aus Problem und letzter interner Notiz einen moderierbaren FAQ-Entwurf. Es wird nichts automatisch veröffentlicht.</p>
+<form method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="faq_from_ticket">
+<input type="hidden" name="ticket_id" value="<?= app_escape((string)$detail['id']) ?>">
+<button type="submit">FAQ-Entwurf erzeugen</button>
+</form>
+<?php else: ?>
+<p class="notice">Die automatische FAQ-Erstellung wird verfügbar, sobald das Ticket erledigt ist.</p>
+<?php endif; ?>
+</section>
 <?php endif; ?>
 
 <section class="edit-box"><h2>Archiv</h2>
