@@ -305,7 +305,25 @@ function app_text(mixed $value, int $max, bool $required, string $label): string
     return $value;
 }
 
-function app_ticket_create(PDO $db, array $input, string $type): string
+function app_generate_status_code(): array
+{
+    $raw = strtoupper(bin2hex(random_bytes(10)));
+    return [
+        'raw'=>$raw,
+        'display'=>implode('-', str_split($raw, 4)),
+        'hash'=>hash('sha256', $raw),
+    ];
+}
+
+function app_normalize_status_code(mixed $value): ?string
+{
+    if (!is_string($value) || strlen($value) > 64) return null;
+    $raw = strtoupper(trim($value));
+    $raw = str_replace(['-',' '], '', $raw);
+    return preg_match('/\A[A-F0-9]{20}\z/', $raw) === 1 ? $raw : null;
+}
+
+function app_ticket_create(PDO $db, array $input, string $type): array
 {
     if (!in_array($type, ['support', 'defect'], true)) {
         throw new InvalidArgumentException('Ungültige Ticketart.');
@@ -339,15 +357,17 @@ function app_ticket_create(PDO $db, array $input, string $type): string
         throw new InvalidArgumentException('Die gewählte Kategorie ist nicht verfügbar.');
     }
 
+    $statusCode = app_generate_status_code();
+
     $db->beginTransaction();
     try {
         $insert = $db->prepare(
             'INSERT INTO tickets
             (type,reporter_name,reporter_abbreviation,category_id,location,device,defect_subject,
-             inventory_number,serial_number,description,occurrence_details,priority,status,status_changed_at)
+             inventory_number,serial_number,description,occurrence_details,priority,status,status_changed_at,status_code_hash)
              VALUES
             (:type,:name,:abbr,:category,:location,:device,:defect,
-             :inventory,:serial,:description,:occurrence,:priority,\'new\',UTC_TIMESTAMP(6))'
+             :inventory,:serial,:description,:occurrence,:priority,\'new\',UTC_TIMESTAMP(6),:status_code_hash)'
         );
         $insert->execute([
             'type' => $type,
@@ -362,6 +382,7 @@ function app_ticket_create(PDO $db, array $input, string $type): string
             'description' => $description,
             'occurrence' => $occurrence === '' ? null : $occurrence,
             'priority' => $type === 'defect' ? 'high' : 'normal',
+            'status_code_hash' => $statusCode['hash'],
         ]);
         $id = (string)$db->lastInsertId();
         $queue = $db->prepare('UPDATE tickets SET queue_position=:position WHERE id=:id');
@@ -379,7 +400,10 @@ function app_ticket_create(PDO $db, array $input, string $type): string
             error_log('Schul-IT: usage statistics failed after ticket creation');
         }
 
-        return $id;
+        return [
+            'id'=>$id,
+            'status_code'=>$statusCode['display'],
+        ];
     } catch (Throwable $error) {
         if ($db->inTransaction()) $db->rollBack();
         throw $error;
@@ -418,20 +442,42 @@ function app_local_time(?string $utc): string
     }
 }
 
-function app_ticket_lookup(PDO $db, mixed $number, mixed $schoolCode): ?array
+function app_ticket_lookup(PDO $db, mixed $number, mixed $statusCode): ?array
 {
-    if (!is_string($number) || !is_string($schoolCode)) return null;
+    if (!is_string($number)) return null;
     $id = ltrim(ltrim(trim($number), '#'), '0');
     if (!preg_match('/\A[1-9][0-9]{0,19}\z/', $id)) return null;
 
-    $expected = app_setting($db, 'school_id');
-    if ($expected === '' || !hash_equals(mb_strtolower($expected), mb_strtolower(trim($schoolCode)))) {
-        return null;
-    }
-    $q = $db->prepare('SELECT id,status,created_at,status_changed_at FROM tickets WHERE id=:id AND archived_at IS NULL');
-    $q->execute(['id' => $id]);
+    $normalizedCode = app_normalize_status_code($statusCode);
+    if ($normalizedCode === null) return null;
+
+    $q = $db->prepare(
+        'SELECT id,status,created_at,status_changed_at,status_code_hash
+         FROM tickets WHERE id=:id AND archived_at IS NULL'
+    );
+    $q->execute(['id'=>$id]);
     $row = $q->fetch();
-    return $row === false ? null : $row;
+    if ($row === false || !is_string($row['status_code_hash'] ?? null)) return null;
+
+    if (!hash_equals((string)$row['status_code_hash'], hash('sha256', $normalizedCode))) return null;
+    unset($row['status_code_hash']);
+    return $row;
+}
+
+function app_admin_reset_ticket_status_code(PDO $db, string $ticketId): string
+{
+    if (preg_match('/\A[1-9][0-9]{0,19}\z/', $ticketId) !== 1) {
+        throw new InvalidArgumentException('Ungültige Ticketnummer.');
+    }
+    $code = app_generate_status_code();
+    $q = $db->prepare(
+        'UPDATE tickets SET status_code_hash=:hash,updated_at=UTC_TIMESTAMP(6) WHERE id=:id'
+    );
+    $q->execute(['hash'=>$code['hash'],'id'=>$ticketId]);
+    if ($q->rowCount() !== 1) {
+        throw new InvalidArgumentException('Ticket nicht gefunden.');
+    }
+    return $code['display'];
 }
 
 function app_session_rate(array &$session, string $key, int $limit, int $seconds): bool
