@@ -132,3 +132,6 @@ body:has(.assistant-widget){padding-bottom:6rem}
 .faq-suggest-success{padding:.8rem;border-radius:.55rem}
 .faq-privacy-note{font-size:.88rem}
 @media(max-width:600px){.faq-review-actions{display:grid}.faq-review-actions button{width:100%}.faq-moderation-meta{align-items:flex-start;flex-direction:column}}
+
+.faq-auto-setting{margin:1rem 0;padding:1rem;border:1px solid #d7e1e8;border-radius:.75rem;background:#f8fbfc}
+.faq-auto-setting .check-row{margin:0}.faq-auto-setting p{margin:.45rem 0 .8rem;font-size:.9rem}
