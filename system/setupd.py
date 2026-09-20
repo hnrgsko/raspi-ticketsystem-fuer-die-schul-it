@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import pathlib
+import platform
 import re
 import secrets
 import signal
@@ -34,12 +35,20 @@ RECOVERY_FILE = RECOVERY_DIR / "recovery.json"
 CONFIG_DIR = pathlib.Path("/etc/schulit")
 APP_CONFIG = CONFIG_DIR / "app.php"
 BACKUP_CONFIG = CONFIG_DIR / "backup.json"
+TUNNEL_CONFIG = CONFIG_DIR / "tunnel.json"
+TUNNEL_TOKEN_FILE = CONFIG_DIR / "cloudflared-token.env"
+TUNNEL_SERVICE_FILE = pathlib.Path("/etc/systemd/system/schulit-tunnel.service")
+CLOUDFLARED_BIN = pathlib.Path("/usr/local/bin/cloudflared")
 MIGRATION_DIR = pathlib.Path("/opt/schulit/setup-migrations")
 DB_NAME = "schulit"
 DB_USER = "schulit_app"
 
 SCHOOL_ID_RE = re.compile(r"\A[A-Za-z0-9._-]{2,32}\Z")
 USERNAME_RE = re.compile(r"\A[A-Za-z0-9._-]{3,100}\Z")
+HOSTNAME_RE = re.compile(
+    r"\A(?=.{4,253}\Z)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\Z"
+)
+TUNNEL_TOKEN_RE = re.compile(r"\A[A-Za-z0-9._-]{50,4096}\Z")
 
 
 class SetupError(Exception):
@@ -533,6 +542,263 @@ def get_backup_status() -> dict[str, Any]:
     return {"ok": True, "configured": True, "present": present, "backup": config}
 
 
+def _run_system(command: list[str], timeout: int = 120) -> str:
+    try:
+        completed = subprocess.run(
+            command,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            timeout=timeout,
+        )
+    except FileNotFoundError as exc:
+        raise SetupError(f"Benötigtes Programm fehlt: {command[0]}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise SetupError(f"Systemaktion hat zu lange gedauert: {command[0]}") from exc
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or "").strip()
+        raise SetupError(
+            f"Systemaktion fehlgeschlagen: {command[0]}" + (f" – {detail}" if detail else "")
+        ) from exc
+    return completed.stdout.strip()
+
+
+def _cloudflared_download_url() -> str:
+    machine = platform.machine().lower()
+    assets = {
+        "aarch64": "cloudflared-linux-arm64",
+        "arm64": "cloudflared-linux-arm64",
+        "armv7l": "cloudflared-linux-arm",
+        "armv6l": "cloudflared-linux-arm",
+        "x86_64": "cloudflared-linux-amd64",
+        "amd64": "cloudflared-linux-amd64",
+    }
+    asset = assets.get(machine)
+    if asset is None:
+        raise SetupError(f"cloudflared wird auf dieser Architektur noch nicht automatisch installiert: {machine}")
+    return f"https://github.com/cloudflare/cloudflared/releases/latest/download/{asset}"
+
+
+def _cloudflared_version() -> str:
+    if not CLOUDFLARED_BIN.is_file():
+        return ""
+    try:
+        return _run_system([str(CLOUDFLARED_BIN), "--version"], timeout=20)
+    except SetupError:
+        return ""
+
+
+def ensure_cloudflared() -> str:
+    existing = _cloudflared_version()
+    if existing:
+        return existing
+
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = pathlib.Path("/run/schulit/cloudflared.download")
+    try:
+        _run_system([
+            "curl",
+            "--fail",
+            "--location",
+            "--silent",
+            "--show-error",
+            "--proto", "=https",
+            "--tlsv1.2",
+            "--output", str(tmp),
+            _cloudflared_download_url(),
+        ], timeout=180)
+        if not tmp.is_file() or tmp.stat().st_size < 5_000_000:
+            raise SetupError("Der cloudflared-Download ist unerwartet klein oder unvollständig.")
+        os.chown(tmp, 0, 0)
+        os.chmod(tmp, 0o755)
+        version = _run_system([str(tmp), "--version"], timeout=20)
+        os.replace(tmp, CLOUDFLARED_BIN)
+        os.chown(CLOUDFLARED_BIN, 0, 0)
+        os.chmod(CLOUDFLARED_BIN, 0o755)
+        return version
+    finally:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _normalize_tunnel_token(value: Any) -> str:
+    if not isinstance(value, str) or len(value) > 8192:
+        raise SetupError("Tunnel-Token fehlt oder ist ungültig.")
+    value = value.strip()
+    if " " in value or "\t" in value:
+        parts = value.replace("\n", " ").split()
+        candidates = [part for part in parts if TUNNEL_TOKEN_RE.fullmatch(part)]
+        if not candidates:
+            raise SetupError("Im eingefügten Cloudflare-Befehl wurde kein Tunnel-Token erkannt.")
+        value = candidates[-1]
+    if TUNNEL_TOKEN_RE.fullmatch(value) is None:
+        raise SetupError("Tunnel-Token hat ein unerwartetes Format.")
+    return value
+
+
+def _validate_public_hostname(value: Any) -> str:
+    hostname = validate_text(value, "Öffentlicher Hostname", 4, 253).lower().rstrip(".")
+    if HOSTNAME_RE.fullmatch(hostname) is None:
+        raise SetupError("Bitte nur einen vollständigen Hostnamen eingeben, z. B. support.schule.de.")
+    return hostname
+
+
+def _systemctl_state(unit: str, verb: str) -> bool:
+    try:
+        completed = subprocess.run(
+            ["systemctl", verb, unit],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=15,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+    return completed.returncode == 0
+
+
+def get_tunnel_status() -> dict[str, Any]:
+    config: dict[str, Any] = {}
+    if TUNNEL_CONFIG.is_file():
+        try:
+            loaded = json.loads(TUNNEL_CONFIG.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                config = loaded
+        except (OSError, json.JSONDecodeError):
+            config = {}
+
+    hostname = str(config.get("hostname") or "")
+    return {
+        "ok": True,
+        "configured": bool(hostname and TUNNEL_TOKEN_FILE.is_file()),
+        "hostname": hostname,
+        "public_url": f"https://{hostname}/" if hostname else "",
+        "cloudflared_installed": CLOUDFLARED_BIN.is_file(),
+        "cloudflared_version": _cloudflared_version(),
+        "service_active": _systemctl_state("schulit-tunnel.service", "is-active"),
+        "service_enabled": _systemctl_state("schulit-tunnel.service", "is-enabled"),
+        "configured_at": str(config.get("configured_at") or ""),
+    }
+
+
+def configure_tunnel(payload: dict[str, Any]) -> dict[str, Any]:
+    if not STATE_FILE.exists():
+        raise SetupError("Der öffentliche Zugang kann erst nach der Ersteinrichtung aktiviert werden.")
+
+    hostname = _validate_public_hostname(payload.get("hostname"))
+    token = _normalize_tunnel_token(payload.get("token"))
+    version = ensure_cloudflared()
+
+    atomic_write(TUNNEL_TOKEN_FILE, f"TUNNEL_TOKEN={token}\n", 0o600)
+
+    unit = f"""[Unit]
+Description=Schul-IT Cloudflare Tunnel
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile={TUNNEL_TOKEN_FILE}
+ExecStart={CLOUDFLARED_BIN} tunnel --no-autoupdate run --token ${{TUNNEL_TOKEN}}
+Restart=always
+RestartSec=5
+User=nobody
+Group=nogroup
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
+"""
+    atomic_write(TUNNEL_SERVICE_FILE, unit, 0o644)
+
+    config = {
+        "version": 1,
+        "provider": "cloudflare",
+        "hostname": hostname,
+        "origin": "http://127.0.0.1:8081",
+        "configured_at": now_iso(),
+        "cloudflared_version": version,
+    }
+    atomic_write(TUNNEL_CONFIG, json.dumps(config, ensure_ascii=False, indent=2) + "\n", 0o600)
+
+    _run_system(["systemctl", "daemon-reload"], timeout=30)
+    _run_system(["systemctl", "enable", "--now", "schulit-tunnel.service"], timeout=45)
+
+    for _ in range(10):
+        if _systemctl_state("schulit-tunnel.service", "is-active"):
+            break
+        __import__("time").sleep(0.5)
+
+    result = get_tunnel_status()
+    if not result["service_active"]:
+        raise SetupError(
+            "Der Tunnel wurde eingerichtet, aber der Dienst läuft nicht. "
+            "Bitte Systemprotokoll prüfen oder den Tunnel erneut verbinden."
+        )
+    return result
+
+
+def disable_tunnel(remove_credentials: bool = True) -> dict[str, Any]:
+    subprocess.run(
+        ["systemctl", "disable", "--now", "schulit-tunnel.service"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+        timeout=30,
+    )
+    if remove_credentials:
+        for path in (TUNNEL_TOKEN_FILE, TUNNEL_CONFIG):
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+    try:
+        TUNNEL_SERVICE_FILE.unlink()
+    except FileNotFoundError:
+        pass
+    subprocess.run(["systemctl", "daemon-reload"], check=False, timeout=30)
+    return get_tunnel_status()
+
+
+def test_tunnel() -> dict[str, Any]:
+    status = get_tunnel_status()
+    hostname = str(status.get("hostname") or "")
+    if not hostname:
+        raise SetupError("Es ist noch kein öffentlicher Hostname konfiguriert.")
+
+    try:
+        completed = subprocess.run(
+            [
+                "curl", "--silent", "--show-error", "--location",
+                "--max-time", "15", "--output", "/dev/null",
+                "--write-out", "%{http_code}",
+                f"https://{hostname}/",
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=20,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        raise SetupError("Der öffentliche Hostname konnte nicht getestet werden.") from exc
+
+    code = completed.stdout.strip()
+    reachable = completed.returncode == 0 and len(code) == 3 and code[0] in {"2", "3", "4"}
+    return {
+        **status,
+        "reachable": reachable,
+        "http_status": code if len(code) == 3 else "",
+        "test_error": "" if reachable else (completed.stderr or "").strip()[:300],
+    }
+
+
 def handle(request: dict[str, Any]) -> dict[str, Any]:
     action = request.get("action")
     if action == "status":
@@ -601,6 +867,17 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
             return backup_core.verify_restore_candidate(manifest, code)
         except backup_core.BackupError as exc:
             raise SetupError(str(exc)) from exc
+    if action == "tunnel_status":
+        return get_tunnel_status()
+    if action == "configure_tunnel":
+        payload = request.get("payload")
+        if not isinstance(payload, dict):
+            raise SetupError("Ungültige Tunnel-Konfiguration.")
+        return configure_tunnel(payload)
+    if action == "test_tunnel":
+        return test_tunnel()
+    if action == "disable_tunnel":
+        return disable_tunnel(True)
     raise SetupError("Unbekannte Setup-Aktion.")
 
 
