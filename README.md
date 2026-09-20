@@ -384,7 +384,7 @@ Dokumentation: [Phase 5d – Backupverwaltung](docs/PHASE-5D-BACKUP-ADMIN.md)
 
 ### Phase 5e – Sicherer Ticketstatus
 
-Implementiert, nächster Realtest:
+Auf Raspberry Pi 4 erfolgreich real getestet:
 
 - kurzer zufälliger Statuscode mit acht gut lesbaren Zeichen pro Ticket
 - Statusabfrage mit Ticketnummer + Statuscode
