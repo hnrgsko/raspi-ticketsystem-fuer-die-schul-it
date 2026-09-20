@@ -57,3 +57,15 @@ Soll ein vorhandenes Testticket weiter über die Kollegiumsseite abgefragt werde
 5. neuen Code im Admin erzeugen
 6. alten Code erneut testen → muss scheitern
 7. neuen Code testen → muss funktionieren
+
+
+## Hardwaretest Raspberry Pi 4
+
+Am 20.09.2026 auf echter Hardware bestätigt:
+
+- neues Ticket erhält kurzen Statuscode
+- gültige Kombination aus Ticketnummer + Statuscode zeigt den Status
+- falscher Statuscode wird abgewiesen
+- Admin kann einen neuen Statuscode erzeugen
+- alter Statuscode wird danach unmittelbar ungültig
+- neuer Statuscode funktioniert
