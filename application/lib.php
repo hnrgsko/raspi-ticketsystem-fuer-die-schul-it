@@ -1166,6 +1166,15 @@ function app_faq_autopilot_recommendation(PDO $db, array $ticket, string $questi
     ];
 }
 
+function app_db_id(mixed $value): ?string
+{
+    if (is_int($value)) $value = (string)$value;
+    if (!is_string($value) || preg_match('/\A[1-9][0-9]{0,19}\z/', $value) !== 1) {
+        return null;
+    }
+    return $value;
+}
+
 function app_faq_link_ticket(PDO $db, string $entryId, ?string $ticketId): void
 {
     if ($ticketId === null || preg_match('/\A[1-9][0-9]{0,19}\z/', $ticketId) !== 1) return;
@@ -1342,8 +1351,7 @@ function app_faq_admin_publish(PDO $db, string $proposalId, string $adminId, arr
             'updated_admin'=>$adminId,
         ]);
         $entryId = (string)$db->lastInsertId();
-        app_faq_link_ticket($db, $entryId, is_string($proposal['source_ticket_id'] ?? null)
-            ? (string)$proposal['source_ticket_id'] : null);
+        app_faq_link_ticket($db, $entryId, app_db_id($proposal['source_ticket_id'] ?? null));
 
         $update = $db->prepare(
             "UPDATE faq_proposals
@@ -1386,8 +1394,7 @@ function app_faq_admin_merge(PDO $db, string $proposalId, string $adminId, array
             throw new InvalidArgumentException('Dieser FAQ-Entwurf ist nicht mehr zur Moderation verfügbar.');
         }
 
-        $entryId = is_string($proposal['suggested_entry_id'] ?? null)
-            ? (string)$proposal['suggested_entry_id'] : '';
+        $entryId = app_db_id($proposal['suggested_entry_id'] ?? null) ?? '';
         if (preg_match('/\A[1-9][0-9]{0,19}\z/', $entryId) !== 1) {
             throw new InvalidArgumentException('Es ist keine bestehende FAQ zum Zusammenführen hinterlegt.');
         }
@@ -1414,8 +1421,7 @@ function app_faq_admin_merge(PDO $db, string $proposalId, string $adminId, array
             }
         }
 
-        app_faq_link_ticket($db, $entryId, is_string($proposal['source_ticket_id'] ?? null)
-            ? (string)$proposal['source_ticket_id'] : null);
+        app_faq_link_ticket($db, $entryId, app_db_id($proposal['source_ticket_id'] ?? null));
 
         $updateProposal = $db->prepare(
             "UPDATE faq_proposals
