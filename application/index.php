@@ -233,7 +233,7 @@ $assistantWidgetActive = $authorized
 <input type="hidden" name="action" value="lookup_ticket">
 <div class="grid">
   <div><label for="ticket_number">Ticketnummer</label><input id="ticket_number" name="ticket_number" required maxlength="30" placeholder="#000001"></div>
-  <div><label for="status_code">Statuscode</label><input id="status_code" name="status_code" required maxlength="64" autocomplete="off" autocapitalize="characters" placeholder="ABCD-EF12-3456-7890-ABCD"></div>
+  <div><label for="status_code">Statuscode</label><input id="status_code" name="status_code" required maxlength="64" autocomplete="off" autocapitalize="characters" placeholder="7K4M-P9Q2"></div>
 </div>
 <div class="actions"><button type="submit">Status anzeigen</button></div>
 </form>
