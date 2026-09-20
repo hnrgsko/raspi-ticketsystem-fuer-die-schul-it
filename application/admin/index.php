@@ -576,10 +576,25 @@ foreach ($statLabels as $metric=>$meta):
 <?php endforeach; ?>
 </div>
 
+<h2>FAQ & Selbsthilfe</h2>
+<?php
+$faqPublicOpen = $usageSummary['faq_public_open'] ?? [];
+$faqSuggestionOpen = $usageSummary['faq_suggestion_open'] ?? [];
+$faqHelpful = $usageSummary['faq_suggestion_helpful'] ?? [];
+$ticketAfterFaq = $usageSummary['ticket_after_faq'] ?? [];
+?>
+<div class="stats-highlight faq-stats-highlight">
+  <div><span>FAQ-Vorschläge geöffnet · 30 Tage</span><strong><?= (int)($faqSuggestionOpen['30d']['events'] ?? 0) ?></strong></div>
+  <div><span>„Hat geholfen“ · 30 Tage</span><strong><?= (int)($faqHelpful['30d']['events'] ?? 0) ?></strong></div>
+  <div><span>Tickets nach FAQ-Nutzung · 30 Tage</span><strong><?= (int)($ticketAfterFaq['30d']['events'] ?? 0) ?></strong></div>
+  <div><span>FAQ auf Startseite geöffnet · 30 Tage</span><strong><?= (int)($faqPublicOpen['30d']['events'] ?? 0) ?></strong></div>
+  <p>Damit lässt sich abschätzen, ob veröffentlichte FAQ und die automatische Vorschaltung tatsächlich Supportfälle abfangen. Es werden weiterhin nur anonyme Tages- und Sitzungszähler gespeichert.</p>
+</div>
+
 <h2>Verlauf der letzten 30 Tage</h2>
 <div class="stats-table-wrap">
 <table class="stats-table">
-<thead><tr><th>Tag</th><th>Tickets</th><th>Inline-Chat</th><th>Sprechblase</th><th>Extern</th><th>Ticket nach KI</th></tr></thead>
+<thead><tr><th>Tag</th><th>Tickets</th><th>Inline-Chat</th><th>Sprechblase</th><th>Extern</th><th>Ticket nach KI</th><th>FAQ-Vorschlag</th><th>FAQ hilfreich</th><th>Ticket nach FAQ</th></tr></thead>
 <tbody>
 <?php foreach (array_reverse($usageDaily) as $day): ?>
 <tr>
@@ -589,6 +604,9 @@ foreach ($statLabels as $metric=>$meta):
 <td><?= (int)$day['assistant_bubble_open'] ?></td>
 <td><?= (int)$day['assistant_external_open'] ?></td>
 <td><?= (int)$day['ticket_after_assistant'] ?></td>
+<td><?= (int)$day['faq_suggestion_open'] ?></td>
+<td><?= (int)$day['faq_suggestion_helpful'] ?></td>
+<td><?= (int)$day['ticket_after_faq'] ?></td>
 </tr>
 <?php endforeach; ?>
 </tbody>
