@@ -1,0 +1,136 @@
+# Phase 5a – Öffentlicher Zugang mit Cloudflare Tunnel
+
+## Ziel
+
+Das Schul-IT Ticketsystem soll über eine schulindividuelle Domain oder Subdomain erreichbar sein, ohne dass am Schul- oder Heimrouter eingehende Ports freigegeben werden müssen.
+
+Beispiel:
+
+`support.schule.de`
+
+## Architektur
+
+Der Raspberry Pi stellt die Anwendung weiterhin lokal auf:
+
+`http://127.0.0.1:8081`
+
+bereit.
+
+Ein Cloudflare Tunnel baut ausschließlich eine ausgehende Verbindung zu Cloudflare auf. Im Cloudflare-Dashboard wird die veröffentlichte Anwendung auf den lokalen Dienst `http://localhost:8081` geroutet.
+
+## Voraussetzungen
+
+- Cloudflare-Konto
+- Domain in Cloudflare
+- remotely-managed Cloudflare Tunnel
+- öffentlicher Hostname / Subdomain
+- Tunnel-Token
+
+## Admin-Workflow
+
+Unter **Admin → System → Domain / Cloudflare Tunnel**:
+
+1. gewünschten öffentlichen Hostnamen eintragen
+2. Tunnel-Token einfügen
+   - alternativ kann der komplette von Cloudflare angezeigte `cloudflared service install …`-Befehl eingefügt werden
+3. **Tunnel installieren & aktivieren**
+4. optional **Verbindung testen**
+
+Das System:
+
+- erkennt Raspberry Pi ARM / ARM64 sowie amd64-Entwicklungsumgebungen
+- lädt `cloudflared` ausschließlich über die offizielle Cloudflare-GitHub-Release-URL
+- installiert die Binärdatei nach `/usr/local/bin/cloudflared`
+- speichert den Tunnel-Token root-only
+- erzeugt einen eigenen systemd-Dienst `schulit-tunnel.service`
+- startet den Tunnel automatisch beim Boot
+- zeigt den öffentlichen Kollegiumslink im Adminbereich
+
+## Cloudflare-Konfiguration
+
+Im Cloudflare-Dashboard wird für den Tunnel eine veröffentlichte Anwendung angelegt:
+
+- Hostname: z. B. `support.schule.de`
+- Service/Origin: `http://localhost:8081`
+
+## Kollegiumslink
+
+Die Anwendung bleibt zusätzlich durch ihr bestehendes Zugangstoken geschützt.
+
+Der Adminbereich zeigt nach erfolgreicher Konfiguration einen Link nach dem Schema:
+
+`https://support.schule.de/?access=<SCHUL-TOKEN>`
+
+Dieser Link sollte ausschließlich im geschützten Schulportal oder über interne Kommunikationswege verteilt werden.
+
+## Sicherheit
+
+### Kein Portforwarding
+
+Der Router benötigt keine eingehende Portweiterleitung.
+
+### Tunnel-Token
+
+Der Cloudflare Tunnel-Token:
+
+- wird mit Modus 0600 gespeichert
+- gehört root
+- wird nach dem Speichern nicht erneut in der Oberfläche angezeigt
+- wird nicht in MariaDB abgelegt
+- wird nicht in Webserver-Logs geschrieben
+
+### systemd-Dienst
+
+Der Connector läuft als:
+
+- Benutzer `nobody`
+- Gruppe `nogroup`
+- `NoNewPrivileges=true`
+- `PrivateTmp=true`
+- `ProtectHome=true`
+- `ProtectSystem=strict`
+
+### Entfernung
+
+Ein System-Admin kann den Tunnel trennen.
+
+Dabei werden auf dem Raspberry Pi:
+
+- Dienst deaktiviert
+- Dienstdatei entfernt
+- gespeicherter Tunnel-Token gelöscht
+- lokale Tunnelkonfiguration gelöscht
+
+Tickets, FAQ, Datenbank und lokaler Zugriff bleiben erhalten.
+
+Die Konfiguration im Cloudflare-Konto selbst wird dadurch nicht gelöscht.
+
+## Restore-Verhalten
+
+Ein Restore soll einen externen Tunnel nicht ungefragt automatisch auf einem Ersatzgerät aktivieren.
+
+Nach einem vollständigen Gerätewechsel wird der öffentliche Zugang bewusst neu verbunden. Dadurch wird vermieden, dass alter und neuer Raspberry Pi versehentlich parallel denselben Zugang bereitstellen.
+
+## Systemprüfung
+
+Wenn ein Tunnel lokal eingerichtet ist, prüft der Installer zusätzlich:
+
+- Tunnel-Konfiguration root-only
+- Tunnel-Token root-only
+- Rechte von `cloudflared`
+- Rechte der systemd-Unit
+- aktiver Tunnel-Dienst
+
+Die Erreichbarkeit der öffentlichen Domain wird absichtlich separat über **Verbindung testen** geprüft, damit vorübergehende DNS- oder Internetprobleme kein lokales Softwareupdate blockieren.
+
+## Realtest später
+
+1. Cloudflare Tunnel im Dashboard anlegen.
+2. Published Application auf `http://localhost:8081` setzen.
+3. Hostname und Token unter Admin → System eintragen.
+4. Aktivierung abwarten.
+5. **Verbindung testen**.
+6. Öffentlichen Kollegiumslink auf Mobilfunk statt WLAN testen.
+7. Adminseite über HTTPS testen.
+8. Raspberry Pi neu starten und prüfen, ob der Tunnel automatisch wiederkommt.
+9. Tunnel testweise trennen und prüfen, dass lokaler Zugriff erhalten bleibt.
