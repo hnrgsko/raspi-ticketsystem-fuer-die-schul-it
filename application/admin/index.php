@@ -106,7 +106,7 @@ if ($db instanceof PDO) {
 
 $filters = admin_filters($_GET);
 $section = is_string($_GET['section'] ?? null) ? $_GET['section'] : '';
-if (!in_array($section, ['system','faq'], true)) $section = '';
+if (!in_array($section, ['system','faq','stats'], true)) $section = '';
 
 if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -272,6 +272,10 @@ $faqReady = $db instanceof PDO && app_faq_tables_ready($db);
 $faqAutoFromDone = $db instanceof PDO ? app_faq_auto_from_done($db) : true;
 $faqPending = ($user !== null && $faqReady && $section === 'faq') ? app_faq_admin_pending($db) : [];
 $faqEntries = ($user !== null && $faqReady && $section === 'faq') ? app_faq_admin_entries($db) : [];
+$usageReady = $db instanceof PDO && app_usage_tables_ready($db);
+$usageSummary = ($user !== null && $usageReady && $section === 'stats') ? app_admin_usage_summary($db) : [];
+$ticketStats = ($user !== null && $db instanceof PDO && $section === 'stats') ? app_admin_ticket_statistics($db) : [];
+$usageDaily = ($user !== null && $usageReady && $section === 'stats') ? app_admin_usage_daily($db, 30) : [];
 $ticketId = is_string($_GET['ticket'] ?? null) ? $_GET['ticket'] : '';
 $detail = ($user !== null && $db instanceof PDO && $ticketId !== '' && $section === '')
     ? app_admin_ticket($db, $ticketId) : null;
@@ -327,13 +331,78 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <nav class="admin-primary-nav" aria-label="Adminbereiche">
 <a class="<?= $section==='' && $filters['view']==='active' ? 'active' : '' ?>" href="/admin/">Aktive Tickets</a>
 <a class="<?= $section==='' && $filters['view']==='archive' ? 'active' : '' ?>" href="/admin/?view=archive">Archiv</a>
+<a class="<?= $section==='stats' ? 'active' : '' ?>" href="/admin/?section=stats">Statistik</a>
 <?php if ($faqReady): ?><a class="<?= $section==='faq' ? 'active' : '' ?>" href="/admin/?section=faq">FAQ<?php if ($faqPending !== []): ?> (<?= count($faqPending) ?>)<?php endif; ?></a><?php endif; ?>
 <?php if (($user['role'] ?? '') === 'system_admin'): ?><a class="<?= $section==='system' ? 'active' : '' ?>" href="/admin/?section=system">System</a><?php endif; ?>
 <a href="/">Kollegiumsseite</a>
 <?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?>
 </nav>
 
-<?php if ($section === 'faq' && $faqReady): ?>
+<?php if ($section === 'stats'): ?>
+<section class="panel stats-panel">
+<span class="label">Übersicht</span>
+<h1>Statistik</h1>
+<p>Die Statistik zählt ausschließlich aggregierte Nutzungen. Es werden keine IP-Adressen, Namen, Browserkennungen oder Chat-Inhalte gespeichert.</p>
+
+<h2>Tickets</h2>
+<div class="stats-cards">
+  <article class="stats-card"><span>Heute</span><strong><?= (int)($ticketStats['today'] ?? 0) ?></strong><small>neue Tickets</small></article>
+  <article class="stats-card"><span>Letzte 7 Tage</span><strong><?= (int)($ticketStats['7d'] ?? 0) ?></strong><small>neue Tickets</small></article>
+  <article class="stats-card"><span>Letzte 30 Tage</span><strong><?= (int)($ticketStats['30d'] ?? 0) ?></strong><small>neue Tickets</small></article>
+  <article class="stats-card"><span>Gesamt</span><strong><?= (int)($ticketStats['all'] ?? 0) ?></strong><small>Tickets</small></article>
+  <article class="stats-card"><span>Aktuell offen</span><strong><?= (int)($ticketStats['open'] ?? 0) ?></strong><small>nicht erledigt</small></article>
+  <article class="stats-card"><span>Erledigt</span><strong><?= (int)($ticketStats['done'] ?? 0) ?></strong><small>Tickets</small></article>
+</div>
+
+<h2>KI-Assistent</h2>
+<?php if (!$usageReady): ?>
+<p class="notice">Die Nutzungsstatistik wird nach Anwendung der Statistik-Migration verfügbar.</p>
+<?php else: ?>
+<p class="muted stats-explainer">„Nutzungen“ sind Öffnungen bzw. tatsächliche Einstiege. „Sitzungen“ werden pro Zugangsweg und Kalendertag höchstens einmal je Browsersitzung gezählt. Dieselbe Sitzung kann mehrere Zugangswege verwenden.</p>
+<div class="stats-assistant-grid">
+<?php
+$statLabels = [
+    'assistant_inline_use' => ['Direkt eingebetteter Chat','Tatsächlich in den Inline-iframe geklickt'],
+    'assistant_bubble_open' => ['Sprechblase','Chatblase geöffnet'],
+    'assistant_external_open' => ['Extern geöffnet','Assistent in neuem Tab/Fenster geöffnet'],
+];
+foreach ($statLabels as $metric=>$meta):
+    $m = $usageSummary[$metric] ?? [];
+?>
+<article class="stats-channel">
+<h3><?= app_escape($meta[0]) ?></h3>
+<p><?= app_escape($meta[1]) ?></p>
+<div class="stats-periods">
+<div><span>Heute</span><strong><?= (int)($m['today']['events'] ?? 0) ?></strong><small><?= (int)($m['today']['sessions'] ?? 0) ?> Sitzungen</small></div>
+<div><span>7 Tage</span><strong><?= (int)($m['7d']['events'] ?? 0) ?></strong><small><?= (int)($m['7d']['sessions'] ?? 0) ?> Sitzungen</small></div>
+<div><span>30 Tage</span><strong><?= (int)($m['30d']['events'] ?? 0) ?></strong><small><?= (int)($m['30d']['sessions'] ?? 0) ?> Sitzungen</small></div>
+<div><span>Gesamt</span><strong><?= (int)($m['all']['events'] ?? 0) ?></strong><small><?= (int)($m['all']['sessions'] ?? 0) ?> Sitzungen</small></div>
+</div>
+</article>
+<?php endforeach; ?>
+</div>
+
+<h2>Verlauf der letzten 30 Tage</h2>
+<div class="stats-table-wrap">
+<table class="stats-table">
+<thead><tr><th>Tag</th><th>Tickets</th><th>Inline-Chat</th><th>Sprechblase</th><th>Extern</th></tr></thead>
+<tbody>
+<?php foreach (array_reverse($usageDaily) as $day): ?>
+<tr>
+<td><?= app_escape((new DateTimeImmutable((string)$day['date']))->format('d.m.Y')) ?></td>
+<td><?= (int)$day['ticket_created'] ?></td>
+<td><?= (int)$day['assistant_inline_use'] ?></td>
+<td><?= (int)$day['assistant_bubble_open'] ?></td>
+<td><?= (int)$day['assistant_external_open'] ?></td>
+</tr>
+<?php endforeach; ?>
+</tbody>
+</table>
+</div>
+<?php endif; ?>
+</section>
+
+<?php elseif ($section === 'faq' && $faqReady): ?>
 <section class="panel faq-admin-panel">
 <span class="label">Moderation</span>
 <h1>FAQ & Wissensaufbau</h1>
