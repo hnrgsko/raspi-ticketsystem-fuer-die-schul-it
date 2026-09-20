@@ -437,3 +437,11 @@ html{scroll-behavior:smooth;scroll-padding-top:1rem}
 .backup-last code{max-width:100%;padding:.3rem .45rem;border-radius:.35rem;background:#fff;overflow-wrap:anywhere;word-break:break-all}
 .backup-last span{color:#667780;font-size:.86rem}
 button:disabled,.button[aria-disabled="true"]{cursor:not-allowed;opacity:.5}
+
+
+/* Sichere Ticketstatus-Abfrage */
+.ticket-status-code,.one-time-code{display:flex;flex-direction:column;gap:.2rem;margin:1rem 0;padding:1rem;border:1px solid #bcd8c6;border-radius:.75rem;background:#f2f8f4}
+.ticket-status-code span,.one-time-code span{font-size:.8rem;color:#52636d;font-weight:750}
+.ticket-status-code strong,.one-time-code strong{font-size:1.35rem;letter-spacing:.04em;overflow-wrap:anywhere;word-break:break-word}
+.one-time-code small{color:#667780}
+.ticket-access-admin form{margin-top:.8rem}
