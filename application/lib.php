@@ -308,10 +308,18 @@ function app_ticket_create(PDO $db, array $input, string $type): string
         $queue = $db->prepare('UPDATE tickets SET queue_position=:position WHERE id=:id');
         $queue->execute(['position' => $id, 'id' => $id]);
         $db->commit();
-        app_usage_record($db, 'ticket_created');
-        if (($_SESSION['assistant_used_in_session'] ?? false) === true) {
-            app_usage_record($db, 'ticket_after_assistant');
+
+        // Usage statistics are strictly secondary. A statistics failure must never
+        // turn an already-created ticket into an apparent submission error.
+        try {
+            app_usage_record($db, 'ticket_created');
+            if (($_SESSION['assistant_used_in_session'] ?? false) === true) {
+                app_usage_record($db, 'ticket_after_assistant');
+            }
+        } catch (Throwable $usageError) {
+            error_log('Schul-IT: usage statistics failed after ticket creation');
         }
+
         return $id;
     } catch (Throwable $error) {
         if ($db->inTransaction()) $db->rollBack();
@@ -828,14 +836,15 @@ function app_faq_admin_publish(PDO $db, string $proposalId, string $adminId, arr
         $insert = $db->prepare(
             "INSERT INTO faq_entries
             (proposal_id,category_id,question,answer,status,created_by_admin_id,updated_by_admin_id,published_at)
-            VALUES(:proposal,:category,:question,:answer,'published',:admin,:admin,UTC_TIMESTAMP(6))"
+            VALUES(:proposal,:category,:question,:answer,'published',:created_admin,:updated_admin,UTC_TIMESTAMP(6))"
         );
         $insert->execute([
             'proposal'=>$proposalId,
             'category'=>$categoryId,
             'question'=>$question,
             'answer'=>$answer,
-            'admin'=>$adminId,
+            'created_admin'=>$adminId,
+            'updated_admin'=>$adminId,
         ]);
 
         $update = $db->prepare(
@@ -883,11 +892,16 @@ function app_faq_admin_set_entry_status(PDO $db, string $entryId, string $adminI
     $q = $db->prepare(
         "UPDATE faq_entries
          SET status=:status,updated_by_admin_id=:admin,
-             published_at=CASE WHEN :status='published' THEN COALESCE(published_at,UTC_TIMESTAMP(6)) ELSE published_at END,
+             published_at=CASE WHEN :publish_status='published' THEN COALESCE(published_at,UTC_TIMESTAMP(6)) ELSE published_at END,
              updated_at=UTC_TIMESTAMP(6)
          WHERE id=:id"
     );
-    $q->execute(['status'=>$status,'admin'=>$adminId,'id'=>$entryId]);
+    $q->execute([
+        'status'=>$status,
+        'publish_status'=>$status,
+        'admin'=>$adminId,
+        'id'=>$entryId,
+    ]);
     if ($q->rowCount() < 1) {
         $exists = $db->prepare('SELECT id FROM faq_entries WHERE id=:id');
         $exists->execute(['id'=>$entryId]);
