@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -66,7 +67,7 @@ def _write_status(payload: dict[str, Any]) -> None:
     tmp.chmod(0o640)
     # root:www-data
     import grp
-    tmp.chown(0, grp.getgrnam("www-data").gr_gid)
+    os.chown(tmp, 0, grp.getgrnam("www-data").gr_gid)
     tmp.replace(STATUS_FILE)
 
 
