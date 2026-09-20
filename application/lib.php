@@ -682,22 +682,6 @@ function app_faq_public_entries(PDO $db, int $limit = 12): array
     )->fetchAll();
 }
 
-function app_faq_colleague_suggest(PDO $db, array $input): string
-{
-    if (!app_faq_tables_ready($db)) {
-        throw new RuntimeException('Die FAQ-Funktion ist noch nicht eingerichtet.');
-    }
-    $question = app_text($input['faq_question'] ?? '', 400, true, 'Problemfrage');
-    $categoryId = app_faq_category_id($db, $input['faq_category_id'] ?? '');
-
-    $q = $db->prepare(
-        "INSERT INTO faq_proposals(source_type,category_id,question,answer_draft,status)
-         VALUES('colleague',:category,:question,NULL,'pending')"
-    );
-    $q->execute(['category'=>$categoryId, 'question'=>$question]);
-    return (string)$db->lastInsertId();
-}
-
 function app_faq_ticket_question(array $ticket): string
 {
     $subject = trim((string)($ticket['defect_subject'] ?? ''));
