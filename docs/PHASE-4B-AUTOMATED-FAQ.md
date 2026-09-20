@@ -8,7 +8,7 @@ Das System veröffentlicht niemals automatisch Inhalte aus Tickets. Stattdessen 
 
 **automatisch formulieren → kurz moderieren → veröffentlichen**
 
-## Quellen für FAQ-Vorschläge
+## Quellen für FAQ-Entwürfe
 
 ### 1. Erledigtes Ticket
 
@@ -33,18 +33,14 @@ Admins können unter **FAQ → Neue FAQ-Frage direkt formulieren** selbst angebe
 
 Der Vorschlag landet ebenfalls zuerst in der Moderation.
 
-### 3. Kollegiums-Vorschlag
+### 3. Normale Ticketmeldung durch das Kollegium
 
-Auf der Kollegiumsseite gibt es unter den veröffentlichten FAQ:
+Für Kolleginnen und Kollegen gibt es **keinen gesonderten FAQ-Vorschlagsweg**.
 
-**Fehlt eine Problemfrage? Für das FAQ vorschlagen**
+Sie nutzen ausschließlich das normale Ticketsystem und formulieren dort ihr **Problem / ihre Frage**. Erst wenn das Ticket gelöst und auf **Erledigt** gesetzt wird, entsteht daraus im Hintergrund automatisch ein FAQ-Entwurf.
 
-Kolleginnen und Kollegen können:
+Damit wächst das FAQ aus realen Supportfällen, ohne dass das Kollegium zusätzliche Arbeit hat.
 
-- eine Problemfrage formulieren
-- optional eine Kategorie wählen
-
-Es wird absichtlich kein Name oder Kürzel abgefragt. Die Frage wird nicht direkt veröffentlicht.
 
 ## Moderation
 
@@ -72,7 +68,7 @@ Admins können veröffentlichte Einträge:
 ## Datenschutz und Sicherheit
 
 - keine automatische Veröffentlichung aus internen Tickets
-- Kollegiums-Vorschläge ohne Namensfeld
+- keine zusätzliche FAQ-Erfassung durch das Kollegium; Quelle sind normale Support-Tickets
 - alle Ausgaben HTML-escaped
 - CSRF-Schutz
 - Session-basierte Rate-Limits für Kollegiums-Vorschläge
@@ -94,7 +90,7 @@ Quellen:
 
 - `ticket`
 - `admin`
-- `colleague`
+- `colleague` bleibt im Datenmodell vorerst reserviert, wird im aktuellen Workflow aber nicht verwendet
 
 ## Erster Realtest
 
@@ -104,6 +100,6 @@ Quellen:
 4. Prüfen, dass automatisch ein FAQ-Entwurf erscheint.
 5. Frage und Antwort kontrollieren und veröffentlichen.
 6. Kollegiumsseite öffnen und FAQ prüfen.
-7. Dort eine neue Problemfrage vorschlagen.
-8. Admin → FAQ öffnen und den Kollegiums-Vorschlag moderieren.
+7. Ein weiteres normales Support-Ticket mit einer als Frage formulierten Problembeschreibung erstellen und lösen.
+8. Prüfen, dass daraus ebenfalls automatisch ein FAQ-Entwurf entsteht.
 9. Automatik als System-Admin testweise aus- und wieder einschalten.
