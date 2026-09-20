@@ -429,3 +429,11 @@ html{scroll-behavior:smooth;scroll-padding-top:1rem}
 .update-available-card summary{cursor:pointer;padding:.75rem .9rem;font-weight:800}
 .release-notes{padding:0 .9rem .9rem;white-space:normal;overflow-wrap:anywhere;line-height:1.55}
 @media(max-width:650px){.update-banner{align-items:flex-start;flex-direction:column}.update-banner .button{width:100%;text-align:center}}
+
+
+/* Phase 5d – Backupverwaltung im Systembereich */
+.system-backup-panel{margin-top:1rem}
+.backup-last{display:flex;gap:.65rem;align-items:center;flex-wrap:wrap;margin:1rem 0;padding:.85rem;border:1px solid #d8e5dc;border-radius:.7rem;background:#f6faf7}
+.backup-last code{max-width:100%;padding:.3rem .45rem;border-radius:.35rem;background:#fff;overflow-wrap:anywhere;word-break:break-all}
+.backup-last span{color:#667780;font-size:.86rem}
+button:disabled,.button[aria-disabled="true"]{cursor:not-allowed;opacity:.5}
