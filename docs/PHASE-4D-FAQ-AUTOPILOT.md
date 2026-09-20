@@ -149,3 +149,21 @@ Noch offen in diesem Testblock:
 - Erkennung **Bestehende FAQ wahrscheinlich**
 - Zusammenführen / Aktualisieren einer bestehenden FAQ
 - Erhöhung des verknüpften Ticketzählers
+
+
+## Hardwaretest Raspberry Pi 4 – Teiltest 2 – Ähnlichkeit / Review
+
+Am 20.09.2026 auf echter Hardware bestätigt:
+
+- zweites thematisch ähnliches Ticket wurde nach Erledigung mit einer bestehenden FAQ verglichen
+- bestehende FAQ wurde korrekt als ähnlich erkannt
+- gemessene lexikalische Ähnlichkeit im Testfall: **44 %**
+- Oberfläche zeigt die bestehende FAQ samt Antwort als Vergleich
+- bei mittlerer Ähnlichkeit wird korrekt eine manuelle Prüfung verlangt
+- Aktion **Bestehende FAQ aktualisieren** wird angeboten
+
+Noch zu prüfen:
+
+- ob die bestehende FAQ aus dem ersten Testticket korrekt mit diesem Ticket verknüpft wurde; im Screenshot steht aktuell **0 Ticket(s)**
+- separater stärker ähnlicher Testfall für die Empfehlung **Bestehende FAQ wahrscheinlich**
+- Zusammenführen / Aktualisieren und anschließende Erhöhung des Ticketzählers
