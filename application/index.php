@@ -13,6 +13,7 @@ app_try_public_token();
 $error = '';
 $successTicket = null;
 $statusResult = null;
+$faqSuggestionSent = false;
 $ready = false;
 $db = null;
 $schoolName = 'Schul-IT Ticketsystem';
@@ -63,6 +64,12 @@ if ($authorized && $ready && $db instanceof PDO && $_SERVER['REQUEST_METHOD'] ==
             if ($statusResult === null) {
                 throw new RuntimeException('Kein passendes Ticket gefunden. Bitte Schulkennung und Ticketnummer prüfen.');
             }
+        } elseif ($action === 'suggest_faq') {
+            if (!app_session_rate($_SESSION, 'faq_suggest', 5, 900)) {
+                throw new RuntimeException('Zu viele FAQ-Vorschläge. Bitte später erneut versuchen.');
+            }
+            app_faq_colleague_suggest($db, $_POST);
+            $faqSuggestionSent = true;
         } else {
             throw new RuntimeException('Unbekannte Aktion.');
         }
@@ -76,6 +83,8 @@ if (!is_string($type) || !in_array($type, ['support','defect'], true)) {
     $type = '';
 }
 $categories = ($authorized && $ready && $db instanceof PDO) ? app_categories($db, false) : [];
+$publicFaq = ($authorized && $ready && $db instanceof PDO) ? app_faq_public_entries($db, 12) : [];
+$faqReady = $authorized && $ready && $db instanceof PDO && app_faq_tables_ready($db);
 $csrf = $authorized ? app_csrf($_SESSION) : '';
 $assistantWidgetActive = $authorized
     && $ready
@@ -182,6 +191,47 @@ $assistantWidgetActive = $authorized
   </div>
 </div>
 </section>
+
+<?php if ($faqReady): ?>
+<section class="card public-faq" aria-labelledby="public-faq-title">
+<h2 id="public-faq-title">Häufige Fragen</h2>
+<p class="muted">Kurze Lösungen für wiederkehrende IT-Probleme aus bereits bearbeiteten Anfragen.</p>
+
+<?php if ($publicFaq === []): ?>
+<div class="notice">Noch wurden keine FAQ veröffentlicht.</div>
+<?php else: ?>
+<div class="faq-list">
+<?php foreach ($publicFaq as $faq): ?>
+<details class="faq-item">
+<summary><?= app_escape((string)$faq['question']) ?></summary>
+<div class="faq-answer">
+<?php if (!empty($faq['category_name'])): ?><span class="label"><?= app_escape((string)$faq['category_name']) ?></span><?php endif; ?>
+<p><?= nl2br(app_escape((string)$faq['answer'])) ?></p>
+</div>
+</details>
+<?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<details class="faq-suggest-box"<?= $faqSuggestionSent ? ' open' : '' ?>>
+<summary>Fehlt eine Problemfrage? Für das FAQ vorschlagen</summary>
+<?php if ($faqSuggestionSent): ?><p class="success faq-suggest-success">Danke. Die Frage wurde zur Moderation an die Schul-IT weitergegeben.</p><?php endif; ?>
+<form method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="suggest_faq">
+<label for="faq_question">Welche Frage sollte das FAQ beantworten?</label>
+<textarea id="faq_question" name="faq_question" maxlength="400" rows="3" required placeholder="z. B. Wie verbinde ich mein Dienst-iPad wieder mit dem WLAN?"></textarea>
+<label for="faq_category_id">Kategorie (optional)</label>
+<select id="faq_category_id" name="faq_category_id">
+<option value="">Keine Kategorie auswählen</option>
+<?php foreach ($categories as $category): ?><option value="<?= app_escape((string)$category['id']) ?>"><?= app_escape((string)$category['name']) ?></option><?php endforeach; ?>
+</select>
+<p class="muted faq-privacy-note">Der Vorschlag enthält absichtlich kein Namensfeld. Bitte keine personenbezogenen Daten in die Frage schreiben.</p>
+<button type="submit">Problemfrage vorschlagen</button>
+</form>
+</details>
+</section>
+<?php endif; ?>
 
 <section class="card">
 <h2>Ticketstatus prüfen</h2>
