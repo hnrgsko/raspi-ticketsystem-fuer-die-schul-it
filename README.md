@@ -318,3 +318,22 @@ Implementiert, nächster Realtest:
 - weiterhin keine automatische Veröffentlichung ohne Moderation
 
 Dokumentation: [Phase 4d – FAQ-Autopilot](docs/PHASE-4D-FAQ-AUTOPILOT.md)
+
+
+### Phase 5a – Öffentlicher Zugang mit Cloudflare Tunnel
+
+Implementiert, nächster Realtest:
+
+- geführte Einrichtung unter **Admin → System**
+- schulindividueller Hostname / Subdomain
+- Cloudflare Tunnel ohne Router-Portfreigabe
+- Tunnel-Token oder kompletter Cloudflare-Installationsbefehl kann eingefügt werden
+- automatische `cloudflared`-Installation für ARM, ARM64 und amd64
+- eigener gehärteter systemd-Dienst
+- Token root-only und nicht erneut in der Oberfläche sichtbar
+- öffentlicher Kollegiumslink mit bestehendem Zugangstoken
+- separater Verbindungstest
+- Tunnel kann lokal wieder getrennt werden
+- Installer prüft bei konfiguriertem Tunnel Rechte und Dienststatus
+
+Dokumentation: [Phase 5a – Öffentlicher Zugang](docs/PHASE-5A-PUBLIC-ACCESS.md)
