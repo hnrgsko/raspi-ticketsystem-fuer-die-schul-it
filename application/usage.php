@@ -3,10 +3,9 @@ declare(strict_types=1);
 
 require __DIR__ . '/lib.php';
 
-header('Cache-Control: no-store, private');
+app_security_headers();
+
 header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
-header('Referrer-Policy: no-referrer');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
