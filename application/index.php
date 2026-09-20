@@ -45,11 +45,11 @@ if ($authorized && $ready && $db instanceof PDO && $_SERVER['REQUEST_METHOD'] ==
                 throw new RuntimeException('Zu viele Ticketversuche. Bitte einige Minuten warten.');
             }
             $type = (string)($_POST['type'] ?? '');
-            $id = app_ticket_create($db, $_POST, $type);
+            $created = app_ticket_create($db, $_POST, $type);
             $successTicket = [
-                'id' => $id,
-                'number' => app_ticket_number($id),
-                'school_id' => $schoolId,
+                'id' => (string)$created['id'],
+                'number' => app_ticket_number((string)$created['id']),
+                'status_code' => (string)$created['status_code'],
             ];
         } elseif ($action === 'lookup_ticket') {
             if (!app_session_rate($_SESSION, 'lookup', 30, 300)) {
@@ -58,10 +58,10 @@ if ($authorized && $ready && $db instanceof PDO && $_SERVER['REQUEST_METHOD'] ==
             $statusResult = app_ticket_lookup(
                 $db,
                 $_POST['ticket_number'] ?? null,
-                $_POST['school_id'] ?? null
+                $_POST['status_code'] ?? null
             );
             if ($statusResult === null) {
-                throw new RuntimeException('Kein passendes Ticket gefunden. Bitte Schulkennung und Ticketnummer prüfen.');
+                throw new RuntimeException('Kein passendes Ticket gefunden. Bitte Ticketnummer und Statuscode prüfen.');
             }
         } else {
             throw new RuntimeException('Unbekannte Aktion.');
@@ -133,7 +133,11 @@ $assistantWidgetActive = $authorized
 <section class="card success">
 <h2>Ticket wurde angelegt ✓</h2>
 <p>Deine Ticketnummer lautet <strong><?= app_escape($successTicket['number']) ?></strong>.</p>
-<p>Für die spätere Statusabfrage brauchst du die Schulkennung <strong><?= app_escape($successTicket['school_id']) ?></strong> und diese Ticketnummer.</p>
+<div class="ticket-status-code">
+  <span>Statuscode</span>
+  <strong><?= app_escape($successTicket['status_code']) ?></strong>
+</div>
+<p>Für die spätere Statusabfrage brauchst du <strong>Ticketnummer und Statuscode</strong>. Bitte beide Angaben speichern. Der Statuscode wird aus Sicherheitsgründen nicht erneut angezeigt.</p>
 <div class="actions"><a class="button" href="/">Zur Startseite</a></div>
 </section>
 <?php elseif ($statusResult !== null): ?>
@@ -230,8 +234,8 @@ $assistantWidgetActive = $authorized
 <input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
 <input type="hidden" name="action" value="lookup_ticket">
 <div class="grid">
-  <div><label for="school_id">Schulkennung</label><input id="school_id" name="school_id" required maxlength="32" value="<?= app_escape($schoolId) ?>"></div>
   <div><label for="ticket_number">Ticketnummer</label><input id="ticket_number" name="ticket_number" required maxlength="30" placeholder="#000001"></div>
+  <div><label for="status_code">Statuscode</label><input id="status_code" name="status_code" required maxlength="64" autocomplete="off" autocapitalize="characters" placeholder="ABCD-EF12-3456-7890-ABCD"></div>
 </div>
 <div class="actions"><button type="submit">Status anzeigen</button></div>
 </form>
