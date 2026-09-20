@@ -396,6 +396,9 @@ function app_ticket_create(PDO $db, array $input, string $type): array
             if (($_SESSION['assistant_used_in_session'] ?? false) === true) {
                 app_usage_record($db, 'ticket_after_assistant');
             }
+            if (($_SESSION['faq_used_in_session'] ?? false) === true) {
+                app_usage_record($db, 'ticket_after_faq');
+            }
         } catch (Throwable $usageError) {
             error_log('Schul-IT: usage statistics failed after ticket creation');
         }
@@ -948,6 +951,60 @@ function app_faq_category_id(PDO $db, mixed $value): ?string
     return (string)$id;
 }
 
+function app_faq_suggestions(PDO $db, mixed $categoryValue, mixed $textValue, int $limit = 3): array
+{
+    if (!app_faq_tables_ready($db)) return [];
+    if (!is_string($textValue) || strlen($textValue) > 4000) return [];
+    $text = trim($textValue);
+    if (mb_strlen($text, 'UTF-8') < 4) return [];
+
+    $categoryId = null;
+    if (is_string($categoryValue) && preg_match('/\A[1-9][0-9]{0,18}\z/', $categoryValue) === 1) {
+        $categoryId = $categoryValue;
+    }
+
+    $entries = $db->query(
+        "SELECT f.id,f.category_id,f.question,f.answer,f.weight,c.name AS category_name,
+                (SELECT COUNT(*) FROM faq_entry_tickets ft WHERE ft.entry_id=f.id) AS ticket_count
+         FROM faq_entries f
+         LEFT JOIN categories c ON c.id=f.category_id
+         WHERE f.status='published'
+         ORDER BY f.weight DESC,f.updated_at DESC,f.id DESC
+         LIMIT 250"
+    )->fetchAll();
+
+    $ranked = [];
+    foreach ($entries as $entry) {
+        $entryCategory = (string)($entry['category_id'] ?? '');
+        $sameCategory = $categoryId !== null && $entryCategory !== '' && $entryCategory === $categoryId;
+        $score = app_faq_similarity_score(
+            $text,
+            (string)$entry['question'] . ' ' . (string)$entry['answer'],
+            $sameCategory
+        );
+
+        // Small reinforcement from repeated real support cases.
+        $score += min(8.0, log(1 + max(0, (int)$entry['ticket_count']), 2) * 2.0);
+        if ($categoryId !== null && $entryCategory !== '' && !$sameCategory) {
+            $score -= 8.0;
+        }
+        if ($score < 18.0) continue;
+
+        $entry['_score'] = round(max(0.0, min(100.0, $score)), 2);
+        $ranked[] = $entry;
+    }
+
+    usort($ranked, static function (array $a, array $b): int {
+        return ($b['_score'] <=> $a['_score'])
+            ?: ((int)$b['ticket_count'] <=> (int)$a['ticket_count'])
+            ?: ((int)$b['weight'] <=> (int)$a['weight'])
+            ?: ((int)$a['id'] <=> (int)$b['id']);
+    });
+
+    $limit = max(1, min(5, $limit));
+    return array_slice($ranked, 0, $limit);
+}
+
 function app_faq_public_entries(PDO $db, int $limit = 12): array
 {
     if (!app_faq_tables_ready($db)) return [];
@@ -1404,8 +1461,12 @@ function app_usage_metrics(): array
         'assistant_inline_use',
         'assistant_bubble_open',
         'assistant_external_open',
+        'faq_public_open',
+        'faq_suggestion_open',
+        'faq_suggestion_helpful',
         'ticket_created',
         'ticket_after_assistant',
+        'ticket_after_faq',
     ];
 }
 
@@ -1441,6 +1502,9 @@ function app_usage_record(PDO $db, string $metric): void
 
     if (str_starts_with($metric, 'assistant_') && session_status() === PHP_SESSION_ACTIVE) {
         $_SESSION['assistant_used_in_session'] = true;
+    }
+    if (str_starts_with($metric, 'faq_') && session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION['faq_used_in_session'] = true;
     }
 }
 
@@ -1535,7 +1599,11 @@ function app_admin_usage_daily(PDO $db, int $days = 30): array
             'assistant_inline_use'=>0,
             'assistant_bubble_open'=>0,
             'assistant_external_open'=>0,
+            'faq_public_open'=>0,
+            'faq_suggestion_open'=>0,
+            'faq_suggestion_helpful'=>0,
             'ticket_after_assistant'=>0,
+            'ticket_after_faq'=>0,
         ];
     }
 
