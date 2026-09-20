@@ -103,3 +103,8 @@ body:has(.assistant-widget){padding-bottom:6rem}
 .assistant-inline-actions{display:flex;justify-content:flex-end;margin-top:.65rem}
 .assistant-bubble-icon{display:block;width:1.45rem;height:1.45rem;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:600px){.assistant-inline-frame{height:58vh;min-height:360px}.assistant-inline-actions{justify-content:stretch}.assistant-inline-actions .button{width:100%;text-align:center}}
+
+.public-footer{max-width:1080px;margin:0 auto;padding:0 18px 28px;display:flex;justify-content:space-between;gap:1rem;align-items:center;color:#7a838c;font-size:.78rem}
+.public-footer .admin-entry{color:#8a929a;text-decoration:none;font-size:.75rem}
+.public-footer .admin-entry:hover,.public-footer .admin-entry:focus-visible{color:#28313b;text-decoration:underline}
+@media(max-width:600px){.public-footer{padding:0 12px 24px;flex-direction:column;align-items:flex-start;gap:.35rem}}
