@@ -3,9 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/lib.php';
 
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-header('Referrer-Policy: no-referrer');
+app_security_headers();
 
 app_start_session(SCHULIT_PUBLIC_SESSIONS, 'schulit_public');
 app_try_public_token();
