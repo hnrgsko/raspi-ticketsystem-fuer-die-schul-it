@@ -355,3 +355,42 @@ Implementiert, nächster Realtest:
 - Schutz des letzten aktiven System-Admins
 
 Dokumentation: [Phase 5b – Administratorkonten](docs/PHASE-5B-ADMIN-ACCOUNTS.md)
+
+
+### Phase 5c – Updateprüfung
+
+Implementiert, nächster Realtest:
+
+- automatische Releaseprüfung alle sechs Stunden
+- manuelle Prüfung im Systembereich
+- Update-Banner im Adminbereich
+- Release Notes
+- keine Telemetrie
+- noch keine automatische Installation ohne signierte Releases
+
+Dokumentation: [Phase 5c – Updateprüfung](docs/PHASE-5C-UPDATE-CHECKER.md)
+
+### Phase 5d – Backupverwaltung
+
+Implementiert, nächster Realtest:
+
+- Backupstatus unter **Admin → System**
+- USB-Medium / Verschlüsselung / letzter Stand
+- manuelles verschlüsseltes Backup
+- Restore-Rechte gehärtet
+- ältere Backups ohne Zugangstoken bleiben kompatibel
+
+Dokumentation: [Phase 5d – Backupverwaltung](docs/PHASE-5D-BACKUP-ADMIN.md)
+
+### Phase 5e – Sicherer Ticketstatus
+
+Implementiert, nächster Realtest:
+
+- zufälliger 80-Bit-Statuscode pro Ticket
+- Statusabfrage mit Ticketnummer + Statuscode
+- Klartextcode nur einmal sichtbar
+- Datenbank speichert nur SHA-256
+- Admin kann neuen Statuscode erzeugen
+- alte unsichere Statusabfrage entfällt
+
+Dokumentation: [Phase 5e – Sicherer Ticketstatus](docs/PHASE-5E-TICKET-STATUS-CODE.md)
