@@ -327,10 +327,19 @@ function app_text(mixed $value, int $max, bool $required, string $label): string
 
 function app_generate_status_code(): array
 {
-    $raw = strtoupper(bin2hex(random_bytes(10)));
+    // Human-friendly alphabet: avoid easily confused characters such as
+    // 0/O and 1/I/L. Eight characters keep the code short while still
+    // providing roughly 40 bits of randomness.
+    $alphabet = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+    $raw = '';
+    $max = strlen($alphabet) - 1;
+    for ($i = 0; $i < 8; $i++) {
+        $raw .= $alphabet[random_int(0, $max)];
+    }
+
     return [
         'raw'=>$raw,
-        'display'=>implode('-', str_split($raw, 4)),
+        'display'=>substr($raw, 0, 4) . '-' . substr($raw, 4, 4),
         'hash'=>hash('sha256', $raw),
     ];
 }
@@ -340,6 +349,12 @@ function app_normalize_status_code(mixed $value): ?string
     if (!is_string($value) || strlen($value) > 64) return null;
     $raw = strtoupper(trim($value));
     $raw = str_replace(['-',' '], '', $raw);
+
+    // New short code plus backward compatibility for already issued
+    // development/test codes from migration 006.
+    if (preg_match('/\A[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}\z/', $raw) === 1) {
+        return $raw;
+    }
     return preg_match('/\A[A-F0-9]{20}\z/', $raw) === 1 ? $raw : null;
 }
 
