@@ -145,7 +145,27 @@ $assistantWidgetActive = $authorized
   <span class="label">Empfohlener erster Schritt</span>
   <h2 id="assistant-title"><?= app_escape((string)$assistant['label']) ?> fragen</h2>
   <p>Beschreibe dein Problem möglichst konkret. Der Assistent kann dir direkt bei typischen Fragen zu Anwendungen, Geräten oder Zugängen helfen.</p>
-  <a class="button assistant-start"<?= $assistantWidgetActive ? ' data-assistant-open' : '' ?> href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer">KI-Assistent starten</a>
+  <?php if ($assistantWidgetActive): ?>
+  <div class="assistant-inline-wrap">
+    <div class="assistant-inline-heading">
+      <span class="experimental-badge">Experimentell</span>
+      <span>Bisher mit AIS.chat getestet</span>
+    </div>
+    <div class="assistant-inline-frame">
+      <iframe
+        title="<?= app_escape((string)$assistant['label']) ?>"
+        src="<?= app_escape((string)$assistant['widget_url']) ?>"
+        referrerpolicy="no-referrer"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        loading="eager"></iframe>
+    </div>
+    <div class="assistant-inline-actions">
+      <a class="button secondary" href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer">Extern öffnen</a>
+    </div>
+  </div>
+  <?php else: ?>
+  <a class="button assistant-start" href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer">KI-Assistent starten</a>
+  <?php endif; ?>
   <p class="assistant-disclosure"><strong>Hinweis:</strong> KI kann Fehler machen. Prüfe Antworten vor der Verwendung und gib keine Passwörter oder unnötigen personenbezogenen Daten ein.</p>
 </section>
 <h2 class="ticket-alternative-title">Problem nicht gelöst?</h2>
@@ -243,7 +263,7 @@ $assistantWidgetActive = $authorized
 <?php if ($assistantWidgetActive): ?>
 <aside class="assistant-widget" aria-label="Experimenteller KI-Assistent">
 <details id="assistant-widget">
-  <summary aria-label="<?= app_escape((string)$assistant['label']) ?> öffnen"><span aria-hidden="true">💬</span></summary>
+  <summary aria-label="<?= app_escape((string)$assistant['label']) ?> öffnen"><svg class="assistant-bubble-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4.5h14a2.5 2.5 0 0 1 2.5 2.5v8A2.5 2.5 0 0 1 19 17.5h-7.2L7 21v-3.5H5A2.5 2.5 0 0 1 2.5 15V7A2.5 2.5 0 0 1 5 4.5Z"/><path d="M7.5 9h9M7.5 13h6"/></svg></summary>
   <section class="assistant-widget-panel" aria-labelledby="assistant-widget-title">
     <div class="assistant-widget-heading">
       <div>
