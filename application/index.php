@@ -104,10 +104,10 @@ $assistantWidgetActive = $authorized
 
 <?php if ($authorized && $ready && $type === ''): ?>
 <nav class="public-anchor-nav" aria-label="Schnellnavigation auf dieser Seite">
-  <?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a href="#assistant-section">KI-Assistent</a><?php endif; ?>
-  <a href="#ticket-section">Ticket aufgeben</a>
-  <?php if ($faqReady): ?><a href="#faq-section">FAQ</a><?php endif; ?>
-  <a href="#ticketstatus-section">Ticketstatus</a>
+  <?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a class="anchor-assistant" href="#assistant-section">KI-Assistent</a><?php endif; ?>
+  <a class="anchor-ticket" href="#ticket-section">Ticket aufgeben</a>
+  <?php if ($faqReady): ?><a class="anchor-faq" href="#faq-section">FAQ</a><?php endif; ?>
+  <a class="anchor-status" href="#ticketstatus-section">Ticketstatus</a>
 </nav>
 <?php endif; ?>
 
@@ -151,7 +151,7 @@ $assistantWidgetActive = $authorized
 <h1>Wie können wir helfen?</h1>
 <?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?>
 <p class="muted">Nutze zuerst den <?= app_escape((string)$assistant['label']) ?> für eine direkte Hilfestellung. Wenn dein Problem damit nicht gelöst wird, kannst du anschließend ein Ticket aufgeben.</p>
-<section class="assistant-intro page-anchor-target" id="assistant-section" aria-labelledby="assistant-title">
+<section class="assistant-intro landing-zone landing-zone-assistant page-anchor-target" id="assistant-section" aria-labelledby="assistant-title">
   <span class="label">Empfohlener erster Schritt</span>
   <h2 id="assistant-title"><?= app_escape((string)$assistant['label']) ?> fragen</h2>
   <p>Beschreibe dein Problem möglichst konkret. Der Assistent kann dir direkt bei typischen Fragen zu Anwendungen, Geräten oder Zugängen helfen.</p>
@@ -180,7 +180,12 @@ $assistantWidgetActive = $authorized
 <?php else: ?>
 <p class="muted">Wähle, ob du Hilfe bei einem IT-Problem brauchst oder einen Defekt melden möchtest.</p>
 <?php endif; ?>
-<div class="grid page-anchor-target" id="ticket-section">
+<section class="landing-zone landing-zone-ticket page-anchor-target" id="ticket-section" aria-labelledby="ticket-section-title">
+  <div class="landing-zone-heading">
+    <span class="landing-zone-kicker">Schul-IT kontaktieren</span>
+    <h2 id="ticket-section-title">Ticket aufgeben</h2>
+  </div>
+  <div class="grid">
   <div class="choice">
     <h2>Hilfe / Problem</h2>
     <p class="muted">Software, Zugang, WLAN, Schulportal, Geräte oder andere IT-Fragen.</p>
@@ -193,9 +198,10 @@ $assistantWidgetActive = $authorized
   </div>
 </div>
 </section>
+</section>
 
 <?php if ($faqReady): ?>
-<section class="card public-faq page-anchor-target" id="faq-section" aria-labelledby="public-faq-title">
+<section class="card public-faq landing-zone landing-zone-faq page-anchor-target" id="faq-section" aria-labelledby="public-faq-title">
 <h2 id="public-faq-title">Häufige Fragen</h2>
 <p class="muted">Kurze Lösungen für wiederkehrende IT-Probleme aus bereits bearbeiteten Anfragen.</p>
 
@@ -218,7 +224,7 @@ $assistantWidgetActive = $authorized
 </section>
 <?php endif; ?>
 
-<section class="card page-anchor-target" id="ticketstatus-section">
+<section class="card landing-zone landing-zone-status page-anchor-target" id="ticketstatus-section">
 <h2>Ticketstatus prüfen</h2>
 <form method="post">
 <input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
