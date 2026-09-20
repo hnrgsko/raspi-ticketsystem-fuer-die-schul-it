@@ -260,6 +260,11 @@ $assistantWidgetActive = $authorized
 <?php endif; ?>
 </main>
 
+<footer class="public-footer">
+  <span>Schul-IT Ticketsystem</span>
+  <a class="admin-entry" href="/admin/">Administration</a>
+</footer>
+
 <?php if ($assistantWidgetActive): ?>
 <aside class="assistant-widget" aria-label="Experimenteller KI-Assistent">
 <details id="assistant-widget">
