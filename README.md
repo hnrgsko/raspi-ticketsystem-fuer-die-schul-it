@@ -394,3 +394,18 @@ Implementiert, nächster Realtest:
 - alte unsichere Statusabfrage entfällt
 
 Dokumentation: [Phase 5e – Sicherer Ticketstatus](docs/PHASE-5E-TICKET-STATUS-CODE.md)
+
+
+### Phase 5f – FAQ-Self-Service vor dem Ticket
+
+Implementiert, nächster Realtest:
+
+- lokale FAQ-Suche während der Supportmeldung
+- bis zu drei passende veröffentlichte Lösungen
+- berücksichtigt Kategorie, Gerät und Problemtext
+- reale Ticket-Häufigkeit fließt leicht in die Gewichtung ein
+- „Das hat geholfen – kein Ticket nötig“
+- keine externe Übertragung der Problembeschreibung
+- Statistik für FAQ-Nutzung und Tickets trotz vorheriger FAQ
+
+Dokumentation: [Phase 5f – FAQ-Self-Service](docs/PHASE-5F-FAQ-SELF-SERVICE.md)
