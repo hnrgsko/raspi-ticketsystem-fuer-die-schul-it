@@ -596,7 +596,16 @@ function app_admin_update_ticket(PDO $db, string $id, string $adminId, array $in
             $db->prepare('INSERT INTO ticket_comments(ticket_id,author_id,body) VALUES(:ticket,:author,:body)')
                ->execute(['ticket' => $id, 'author' => $adminId, 'body' => $comment]);
         }
+        $statusChangedToDone = $ticket['status'] !== 'done' && $status === 'done';
         $db->commit();
+
+        if ($statusChangedToDone && app_faq_auto_from_done($db) && app_faq_tables_ready($db)) {
+            try {
+                app_faq_ticket_proposal($db, $id, $adminId);
+            } catch (Throwable $faqError) {
+                error_log('Schul-IT: automatic FAQ proposal failed for ticket ' . $id);
+            }
+        }
     } catch (Throwable $error) {
         if ($db->inTransaction()) $db->rollBack();
         throw $error;
@@ -618,6 +627,22 @@ function app_admin_archive(PDO $db, string $id, bool $archive): void
     $db->prepare($sql)->execute(['id' => $id]);
 }
 
+
+function app_faq_auto_from_done(PDO $db): bool
+{
+    return app_setting_bool($db, 'faq_auto_from_done', true);
+}
+
+function app_faq_admin_save_settings(PDO $db, array $input): void
+{
+    $enabled = isset($input['faq_auto_from_done']) && (string)$input['faq_auto_from_done'] === '1';
+    $q = $db->prepare(
+        'INSERT INTO system_settings(setting_key,setting_value,updated_at)
+         VALUES(:key,:value,UTC_TIMESTAMP(6))
+         ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_at=UTC_TIMESTAMP(6)'
+    );
+    $q->execute(['key'=>'faq_auto_from_done','value'=>$enabled ? '1' : '0']);
+}
 
 function app_faq_tables_ready(PDO $db): bool
 {
