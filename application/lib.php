@@ -5,6 +5,65 @@ const SCHULIT_APP_CONFIG = '/etc/schulit/app.php';
 const SCHULIT_ACCESS_TOKEN = '/etc/schulit/access-token';
 const SCHULIT_PUBLIC_SESSIONS = '/var/lib/schulit/sessions';
 const SCHULIT_ADMIN_SESSIONS = '/var/lib/schulit/admin-sessions';
+const SCHULIT_SETUP_SOCKET = '/run/schulit/setupd.sock';
+
+function app_system_request(string $action, array $payload = [], int $timeout = 120): array
+{
+    if (!preg_match('/\A[a-z_]{2,64}\z/', $action)) {
+        throw new InvalidArgumentException('Ungültige Systemaktion.');
+    }
+
+    $errno = 0;
+    $errstr = '';
+    $socket = @stream_socket_client(
+        'unix://' . SCHULIT_SETUP_SOCKET,
+        $errno,
+        $errstr,
+        3,
+        STREAM_CLIENT_CONNECT
+    );
+    if (!is_resource($socket)) {
+        throw new RuntimeException('Der lokale Systemdienst ist derzeit nicht erreichbar.');
+    }
+
+    stream_set_timeout($socket, max(5, min(240, $timeout)));
+    $request = ['action'=>$action];
+    if ($payload !== []) $request['payload'] = $payload;
+
+    $encoded = json_encode($request, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($encoded) || strlen($encoded) > 60000) {
+        fclose($socket);
+        throw new RuntimeException('Systemanfrage konnte nicht erstellt werden.');
+    }
+
+    fwrite($socket, $encoded . "\n");
+    $response = fgets($socket, 131073);
+    $meta = stream_get_meta_data($socket);
+    fclose($socket);
+
+    if ($response === false || ($meta['timed_out'] ?? false)) {
+        throw new RuntimeException('Der lokale Systemdienst hat nicht rechtzeitig geantwortet.');
+    }
+
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('Ungültige Antwort des lokalen Systemdienstes.');
+    }
+    if (($decoded['ok'] ?? false) !== true) {
+        $message = is_string($decoded['error'] ?? null) ? $decoded['error'] : 'Systemaktion fehlgeschlagen.';
+        throw new RuntimeException($message);
+    }
+    return $decoded;
+}
+
+function app_public_access_url(string $hostname): string
+{
+    $hostname = strtolower(trim($hostname));
+    if ($hostname === '' || !is_readable(SCHULIT_ACCESS_TOKEN)) return '';
+    $token = trim((string)file_get_contents(SCHULIT_ACCESS_TOKEN));
+    if ($token === '') return '';
+    return 'https://' . $hostname . '/?access=' . rawurlencode($token);
+}
 
 function app_escape(string $value): string
 {
