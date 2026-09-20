@@ -113,7 +113,7 @@ Beispiel:
 - Ticketnummer wird angezeigt
 - zusätzlich erscheint ein zufälliger Statuscode
 - Statuscode sieht ungefähr so aus:
-  - `ABCD-EF12-3456-7890-ABCD`
+  - `7K4M-P9Q2`
 - Schulkennung ist für die Statusabfrage nicht mehr nötig
 
 Ticketnummer und Statuscode notieren.
