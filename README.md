@@ -280,3 +280,22 @@ Implementiert, nächster Realtest:
 - Automatik durch System-Admins abschaltbar
 
 Dokumentation: [Phase 4b – Automatisiertes FAQ mit Moderation](docs/PHASE-4B-AUTOMATED-FAQ.md)
+
+
+### Phase 4c – Nutzungsstatistik
+
+Implementiert, nächster Realtest:
+
+- Adminbereich **Statistik**
+- Tickets heute / 7 Tage / 30 Tage / gesamt
+- offene und erledigte Tickets
+- Assistent-Nutzung getrennt nach:
+  - direkt eingebettetem iframe
+  - Sprechblase
+  - externem Aufruf
+- anonyme Sitzungszählung je Zugangsweg
+- **Tickets nach vorheriger Assistent-Nutzung**
+- 30-Tage-Verlauf
+- ausschließlich aggregierte Tageszähler; keine IP-Adressen, Namen oder Chat-Inhalte
+
+Dokumentation: [Phase 4c – Nutzungsstatistik](docs/PHASE-4C-STATISTICS.md)
