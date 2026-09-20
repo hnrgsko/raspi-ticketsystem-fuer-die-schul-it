@@ -303,7 +303,7 @@ Dokumentation: [Phase 4c – Nutzungsstatistik](docs/PHASE-4C-STATISTICS.md)
 
 ### Phase 4d – FAQ-Autopilot
 
-Teilweise auf Raspberry Pi 4 real getestet: automatischer Entwurf und Empfehlung **Neue FAQ sinnvoll** funktionieren.
+Teilweise auf Raspberry Pi 4 real getestet: automatischer Entwurf, Empfehlung **Neue FAQ sinnvoll**, Veröffentlichung und öffentliche FAQ-Darstellung funktionieren.
 
 Weiterer Realtest:
 
