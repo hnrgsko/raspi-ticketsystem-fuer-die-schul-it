@@ -510,6 +510,169 @@ function app_admin_user(PDO $db): ?array
     return $row;
 }
 
+function app_admin_password(mixed $value, string $label = 'Passwort'): string
+{
+    if (!is_string($value) || strlen($value) > 1024) {
+        throw new InvalidArgumentException($label . ': ungültiger Wert.');
+    }
+    if (mb_strlen($value, 'UTF-8') < 14) {
+        throw new InvalidArgumentException($label . ': mindestens 14 Zeichen erforderlich.');
+    }
+    return $value;
+}
+
+function app_admin_user_list(PDO $db): array
+{
+    return $db->query(
+        "SELECT id,username,display_name,role,is_active,must_change_password,last_login_at,created_at
+         FROM admin_users
+         ORDER BY CASE role WHEN 'system_admin' THEN 0 ELSE 1 END,
+                  is_active DESC,display_name,username,id"
+    )->fetchAll();
+}
+
+function app_admin_create_user(PDO $db, array $input): string
+{
+    $username = app_text($input['admin_username'] ?? '', 100, true, 'Benutzername');
+    if (preg_match('/\A[A-Za-z0-9._-]{3,100}\z/', $username) !== 1) {
+        throw new InvalidArgumentException('Benutzername: 3–100 Buchstaben, Ziffern, Punkte, Unterstriche oder Bindestriche.');
+    }
+    $display = app_text($input['admin_display_name'] ?? '', 100, true, 'Anzeigename');
+    $role = (string)($input['admin_role'] ?? '');
+    if (!in_array($role, ['system_admin','ticket_admin'], true)) {
+        throw new InvalidArgumentException('Ungültige Admin-Rolle.');
+    }
+    $password = app_admin_password($input['admin_password'] ?? '', 'Startpasswort');
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+    if (!is_string($hash)) throw new RuntimeException('Passwort konnte nicht sicher gespeichert werden.');
+
+    try {
+        $q = $db->prepare(
+            "INSERT INTO admin_users
+            (username,display_name,password_hash,role,is_active,must_change_password)
+            VALUES(:username,:display,:hash,:role,1,1)"
+        );
+        $q->execute([
+            'username'=>$username,
+            'display'=>$display,
+            'hash'=>$hash,
+            'role'=>$role,
+        ]);
+    } catch (PDOException $error) {
+        if ((string)$error->getCode() === '23000') {
+            throw new InvalidArgumentException('Dieser Benutzername ist bereits vergeben.') ;
+        }
+        throw $error;
+    }
+    return (string)$db->lastInsertId();
+}
+
+function app_admin_change_own_password(PDO $db, string $userId, array $input): void
+{
+    $current = is_string($input['current_password'] ?? null) ? $input['current_password'] : '';
+    $new = app_admin_password($input['new_password'] ?? '', 'Neues Passwort');
+    $repeat = is_string($input['new_password_repeat'] ?? null) ? $input['new_password_repeat'] : '';
+    if (!hash_equals($new, $repeat)) {
+        throw new InvalidArgumentException('Die neuen Passwörter stimmen nicht überein.');
+    }
+
+    $q = $db->prepare('SELECT password_hash FROM admin_users WHERE id=:id AND is_active=1');
+    $q->execute(['id'=>$userId]);
+    $oldHash = $q->fetchColumn();
+    if (!is_string($oldHash) || !password_verify($current, $oldHash)) {
+        throw new InvalidArgumentException('Das aktuelle Passwort ist nicht korrekt.');
+    }
+    if (password_verify($new, $oldHash)) {
+        throw new InvalidArgumentException('Das neue Passwort muss sich vom bisherigen Passwort unterscheiden.');
+    }
+
+    $newHash = password_hash($new, PASSWORD_DEFAULT);
+    if (!is_string($newHash)) throw new RuntimeException('Passwort konnte nicht sicher gespeichert werden.');
+
+    $db->prepare(
+        'UPDATE admin_users
+         SET password_hash=:hash,must_change_password=0,updated_at=UTC_TIMESTAMP(6)
+         WHERE id=:id'
+    )->execute(['hash'=>$newHash,'id'=>$userId]);
+
+    if (is_array($_SESSION['admin_auth'] ?? null)
+        && (string)($_SESSION['admin_auth']['id'] ?? '') === $userId) {
+        $_SESSION['admin_auth']['credential'] = hash('sha256', $newHash);
+        $_SESSION['admin_auth']['seen'] = time();
+    }
+}
+
+function app_admin_reset_password(PDO $db, string $targetId, string $currentUserId, array $input): void
+{
+    if ($targetId === $currentUserId) {
+        throw new InvalidArgumentException('Das eigene Passwort bitte über „Passwort ändern“ ändern.');
+    }
+    if (preg_match('/\A[1-9][0-9]{0,19}\z/', $targetId) !== 1) {
+        throw new InvalidArgumentException('Ungültiges Administratorkonto.');
+    }
+    $password = app_admin_password($input['reset_password'] ?? '', 'Neues Startpasswort');
+    $repeat = is_string($input['reset_password_repeat'] ?? null) ? $input['reset_password_repeat'] : '';
+    if (!hash_equals($password, $repeat)) {
+        throw new InvalidArgumentException('Die Startpasswörter stimmen nicht überein.');
+    }
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+    if (!is_string($hash)) throw new RuntimeException('Passwort konnte nicht sicher gespeichert werden.');
+
+    $q = $db->prepare(
+        'UPDATE admin_users
+         SET password_hash=:hash,must_change_password=1,updated_at=UTC_TIMESTAMP(6)
+         WHERE id=:id'
+    );
+    $q->execute(['hash'=>$hash,'id'=>$targetId]);
+    if ($q->rowCount() !== 1) {
+        throw new InvalidArgumentException('Administratorkonto nicht gefunden.');
+    }
+}
+
+function app_admin_update_user(PDO $db, string $targetId, string $currentUserId, array $input): void
+{
+    if (preg_match('/\A[1-9][0-9]{0,19}\z/', $targetId) !== 1) {
+        throw new InvalidArgumentException('Ungültiges Administratorkonto.');
+    }
+    if ($targetId === $currentUserId) {
+        throw new InvalidArgumentException('Das eigene Konto kann hier weder gesperrt noch in der Rolle geändert werden.');
+    }
+
+    $role = (string)($input['admin_role'] ?? '');
+    $active = (string)($input['admin_active'] ?? '') === '1';
+    if (!in_array($role, ['system_admin','ticket_admin'], true)) {
+        throw new InvalidArgumentException('Ungültige Admin-Rolle.');
+    }
+
+    $db->beginTransaction();
+    try {
+        $lock = $db->prepare('SELECT role,is_active FROM admin_users WHERE id=:id FOR UPDATE');
+        $lock->execute(['id'=>$targetId]);
+        $target = $lock->fetch();
+        if ($target === false) throw new InvalidArgumentException('Administratorkonto nicht gefunden.');
+
+        $removesSystemAdmin = $target['role'] === 'system_admin'
+            && ((string)$role !== 'system_admin' || !$active);
+        if ($removesSystemAdmin) {
+            $count = (int)$db->query(
+                "SELECT COUNT(*) FROM admin_users WHERE role='system_admin' AND is_active=1"
+            )->fetchColumn();
+            if ($count <= 1) {
+                throw new InvalidArgumentException('Mindestens ein aktiver System-Administrator muss erhalten bleiben.');
+            }
+        }
+
+        $q = $db->prepare(
+            'UPDATE admin_users SET role=:role,is_active=:active,updated_at=UTC_TIMESTAMP(6) WHERE id=:id'
+        );
+        $q->execute(['role'=>$role,'active'=>$active ? 1 : 0,'id'=>$targetId]);
+        $db->commit();
+    } catch (Throwable $error) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $error;
+    }
+}
+
 function app_admin_tickets(PDO $db, array $filters): array
 {
     $conditions = [];
