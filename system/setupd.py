@@ -25,6 +25,7 @@ import traceback
 from typing import Any
 
 import backup_core
+import update_core
 
 SOCKET_PATH = pathlib.Path("/run/schulit/setupd.sock")
 STATE_DIR = pathlib.Path("/var/lib/schulit/setup")
@@ -878,6 +879,10 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
         return test_tunnel()
     if action == "disable_tunnel":
         return disable_tunnel(True)
+    if action == "update_status":
+        return update_core.status()
+    if action == "check_updates":
+        return update_core.check()
     raise SetupError("Unbekannte Setup-Aktion.")
 
 
