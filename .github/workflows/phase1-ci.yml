@@ -20,7 +20,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n install.sh
-          for file in installer/*.sh; do
+          for file in installer/*.sh system/*.sh; do
             echo "Checking ${file}"
             bash -n "${file}"
           done
@@ -33,7 +33,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y shellcheck
           fi
-          shellcheck -x -e SC1091 install.sh installer/*.sh
+          shellcheck -x -e SC1091 install.sh installer/*.sh system/*.sh
 
       - name: PHP syntax
         shell: bash
