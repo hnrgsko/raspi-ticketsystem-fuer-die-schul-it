@@ -4,7 +4,7 @@ set -Eeuo pipefail
 PROJECT_SLUG="raspi-ticketsystem-fuer-die-schul-it"
 PROJECT_REPO="hnrgsko/${PROJECT_SLUG}"
 SOURCE_REF="${SCHULIT_SOURCE_REF:-main}"
-INSTALL_VERSION="0.4.0-dev"
+INSTALL_VERSION="0.5.0-dev"
 
 log() { printf '\n[schulit] %s\n' "$*"; }
 die() { printf '\n[schulit] FEHLER: %s\n' "$*" >&2; exit 1; }
