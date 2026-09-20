@@ -299,3 +299,22 @@ Implementiert, nächster Realtest:
 - ausschließlich aggregierte Tageszähler; keine IP-Adressen, Namen oder Chat-Inhalte
 
 Dokumentation: [Phase 4c – Nutzungsstatistik](docs/PHASE-4C-STATISTICS.md)
+
+
+### Phase 4d – FAQ-Autopilot
+
+Implementiert, nächster Realtest:
+
+- automatische Bewertung neuer FAQ-Entwürfe
+- lokale Dubletten-/Ähnlichkeitserkennung
+- Empfehlungen:
+  - neue FAQ sinnvoll
+  - bestehende FAQ wahrscheinlich
+  - bitte kurz prüfen
+- bestehende FAQ direkt aus neuem Supportfall aktualisieren
+- Ticket-zu-FAQ-Verknüpfungen
+- Häufigkeitszähler realer Supportfälle je FAQ
+- keine externe KI für die Erkennung notwendig
+- weiterhin keine automatische Veröffentlichung ohne Moderation
+
+Dokumentation: [Phase 4d – FAQ-Autopilot](docs/PHASE-4D-FAQ-AUTOPILOT.md)
