@@ -225,6 +225,15 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'reset_ticket_status_code') {
+            $ticketId = (string)($_POST['ticket_id'] ?? '');
+            $newCode = app_admin_reset_ticket_status_code($db, $ticketId);
+            $_SESSION['admin_status_code'] = ['ticket_id'=>$ticketId,'code'=>$newCode];
+            $_SESSION['admin_notice'] = 'Neuer Statuscode wurde erzeugt. Der vorherige Code ist ab sofort ungültig.';
+            header('Location: /admin/?ticket=' . rawurlencode($ticketId), true, 303);
+            exit;
+        }
+
         if ($action === 'archive_ticket' || $action === 'restore_ticket') {
             $ticketId = (string)($_POST['ticket_id'] ?? '');
             $archive = $action === 'archive_ticket';
@@ -396,6 +405,9 @@ if ($db instanceof PDO && $user !== null) {
 $csrf = $user !== null ? app_csrf($_SESSION, 'admin_csrf') : $loginCsrf;
 $message = is_string($_SESSION['admin_notice'] ?? null) ? $_SESSION['admin_notice'] : '';
 unset($_SESSION['admin_notice']);
+$oneTimeStatusCode = is_array($_SESSION['admin_status_code'] ?? null)
+    ? $_SESSION['admin_status_code'] : null;
+unset($_SESSION['admin_status_code']);
 
 $categories = ($user !== null && $db instanceof PDO) ? app_admin_category_list($db) : [];
 $assistant = ($db instanceof PDO) ? app_assistant_settings($db) : [
@@ -1001,6 +1013,26 @@ $lastBackup = is_array($backupStatus['last_backup'] ?? null) ? $backupStatus['la
 <?php if ($detail['comments'] === []): ?><p>Noch keine internen Notizen.</p><?php else: ?>
 <ol class="comments"><?php foreach ($detail['comments'] as $comment): ?><li><p class="preserve"><?= nl2br(app_escape((string)$comment['body'])) ?></p><small><?= app_escape((string)($comment['author_name'] ?? 'Gelöschtes Konto')) ?> · <?= app_escape(app_local_time((string)$comment['created_at'])) ?></small></li><?php endforeach; ?></ol>
 <?php endif; ?></section>
+
+<section class="edit-box ticket-access-admin">
+<h2>Statusabfrage</h2>
+<p>Für die Kollegiumsseite benötigt die meldende Person Ticketnummer und den geheimen Statuscode. Der aktuelle Code ist nicht auslesbar.</p>
+<?php if (is_array($oneTimeStatusCode)
+    && (string)($oneTimeStatusCode['ticket_id'] ?? '') === (string)$detail['id']
+    && is_string($oneTimeStatusCode['code'] ?? null)): ?>
+<div class="one-time-code">
+<span>Neuer Statuscode – jetzt weitergeben oder sicher notieren</span>
+<strong><?= app_escape((string)$oneTimeStatusCode['code']) ?></strong>
+<small>Nach Verlassen dieser Seite wird der Code nicht erneut angezeigt.</small>
+</div>
+<?php endif; ?>
+<form method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="reset_ticket_status_code">
+<input type="hidden" name="ticket_id" value="<?= app_escape((string)$detail['id']) ?>">
+<button type="submit" class="secondary-button">Neuen Statuscode erzeugen</button>
+</form>
+</section>
 
 <?php if ($detail['archived_at'] === null): ?>
 <section class="edit-box"><h2>Ticket bearbeiten</h2>
