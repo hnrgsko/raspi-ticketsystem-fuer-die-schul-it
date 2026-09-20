@@ -337,3 +337,21 @@ Implementiert, nächster Realtest:
 - Installer prüft bei konfiguriertem Tunnel Rechte und Dienststatus
 
 Dokumentation: [Phase 5a – Öffentlicher Zugang](docs/PHASE-5A-PUBLIC-ACCESS.md)
+
+
+### Phase 5b – Administratorkonten
+
+Implementiert, nächster Realtest:
+
+- mehrere Admin-Konten ohne Datenbankzugriff
+- Rollen `system_admin` und `ticket_admin`
+- eigenes Passwort ändern
+- mindestens 14 Zeichen
+- Startpasswort für neue Konten
+- erzwungener Passwortwechsel beim ersten Login
+- Konten aktivieren / sperren
+- Rollen anderer Konten ändern
+- Startpasswort anderer Konten zurücksetzen
+- Schutz des letzten aktiven System-Admins
+
+Dokumentation: [Phase 5b – Administratorkonten](docs/PHASE-5B-ADMIN-ACCOUNTS.md)
