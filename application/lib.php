@@ -309,6 +309,9 @@ function app_ticket_create(PDO $db, array $input, string $type): string
         $queue->execute(['position' => $id, 'id' => $id]);
         $db->commit();
         app_usage_record($db, 'ticket_created');
+        if (($_SESSION['assistant_used_in_session'] ?? false) === true) {
+            app_usage_record($db, 'ticket_after_assistant');
+        }
         return $id;
     } catch (Throwable $error) {
         if ($db->inTransaction()) $db->rollBack();
@@ -910,6 +913,7 @@ function app_usage_metrics(): array
         'assistant_bubble_open',
         'assistant_external_open',
         'ticket_created',
+        'ticket_after_assistant',
     ];
 }
 
@@ -941,6 +945,10 @@ function app_usage_record(PDO $db, string $metric): void
             $_SESSION['usage_counted'] = [];
         }
         $_SESSION['usage_counted'][$sessionKey] = true;
+    }
+
+    if (str_starts_with($metric, 'assistant_') && session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION['assistant_used_in_session'] = true;
     }
 }
 
@@ -1035,6 +1043,7 @@ function app_admin_usage_daily(PDO $db, int $days = 30): array
             'assistant_inline_use'=>0,
             'assistant_bubble_open'=>0,
             'assistant_external_open'=>0,
+            'ticket_after_assistant'=>0,
         ];
     }
 
