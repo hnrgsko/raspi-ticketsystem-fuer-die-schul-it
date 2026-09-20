@@ -106,7 +106,13 @@ if ($db instanceof PDO) {
 
 $filters = admin_filters($_GET);
 $section = is_string($_GET['section'] ?? null) ? $_GET['section'] : '';
-if (!in_array($section, ['system','faq','stats'], true)) $section = '';
+if (!in_array($section, ['system','faq','stats','account'], true)) $section = '';
+
+if ($user !== null && (int)($user['must_change_password'] ?? 0) === 1
+    && $_SERVER['REQUEST_METHOD'] === 'GET' && $section !== 'account') {
+    header('Location: /admin/?section=account', true, 303);
+    exit;
+}
 
 if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -138,6 +144,58 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION = [];
             session_destroy();
             header('Location: /admin/', true, 303);
+            exit;
+        }
+
+        if ((int)($user['must_change_password'] ?? 0) === 1
+            && $action !== 'change_own_password') {
+            throw new RuntimeException('Bitte zuerst das Startpasswort ändern.');
+        }
+
+        if ($action === 'change_own_password') {
+            app_admin_change_own_password($db, (string)$user['id'], $_POST);
+            $_SESSION['admin_notice'] = 'Passwort wurde geändert.';
+            header('Location: /admin/?section=account', true, 303);
+            exit;
+        }
+
+        if ($action === 'create_admin') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen weitere Admin-Konten anlegen.');
+            }
+            app_admin_create_user($db, $_POST);
+            $_SESSION['admin_notice'] = 'Administratorkonto wurde angelegt. Beim ersten Login muss das Startpasswort geändert werden.';
+            header('Location: /admin/?section=system#admin-accounts', true, 303);
+            exit;
+        }
+
+        if ($action === 'update_admin') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen Admin-Konten ändern.');
+            }
+            app_admin_update_user(
+                $db,
+                (string)($_POST['admin_id'] ?? ''),
+                (string)$user['id'],
+                $_POST
+            );
+            $_SESSION['admin_notice'] = 'Administratorkonto wurde aktualisiert.';
+            header('Location: /admin/?section=system#admin-accounts', true, 303);
+            exit;
+        }
+
+        if ($action === 'reset_admin_password') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen Passwörter zurücksetzen.');
+            }
+            app_admin_reset_password(
+                $db,
+                (string)($_POST['admin_id'] ?? ''),
+                (string)$user['id'],
+                $_POST
+            );
+            $_SESSION['admin_notice'] = 'Startpasswort wurde gesetzt. Das Konto muss es beim nächsten Login ändern.';
+            header('Location: /admin/?section=system#admin-accounts', true, 303);
             exit;
         }
 
@@ -326,6 +384,8 @@ $usageReady = $db instanceof PDO && app_usage_tables_ready($db);
 $usageSummary = ($user !== null && $usageReady && $section === 'stats') ? app_admin_usage_summary($db) : [];
 $ticketStats = ($user !== null && $db instanceof PDO && $section === 'stats') ? app_admin_ticket_statistics($db) : [];
 $usageDaily = ($user !== null && $usageReady && $section === 'stats') ? app_admin_usage_daily($db, 30) : [];
+$adminUsers = ($user !== null && ($user['role'] ?? '') === 'system_admin' && $section === 'system')
+    ? app_admin_user_list($db) : [];
 $tunnelStatus = null;
 $tunnelStatusError = '';
 if ($user !== null && ($user['role'] ?? '') === 'system_admin' && $section === 'system') {
@@ -393,6 +453,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <a class="<?= $section==='stats' ? 'active' : '' ?>" href="/admin/?section=stats">Statistik</a>
 <?php if ($faqReady): ?><a class="<?= $section==='faq' ? 'active' : '' ?>" href="/admin/?section=faq">FAQ<?php if ($faqPending !== []): ?> (<?= count($faqPending) ?>)<?php endif; ?></a><?php endif; ?>
 <?php if (($user['role'] ?? '') === 'system_admin'): ?><a class="<?= $section==='system' ? 'active' : '' ?>" href="/admin/?section=system">System</a><?php endif; ?>
+<a class="<?= $section==='account' ? 'active' : '' ?>" href="/admin/?section=account">Passwort ändern</a>
 <a href="/">Kollegiumsseite</a>
 <?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?>
 </nav>
@@ -580,6 +641,29 @@ $recommendationLabel = match ($recommendation) {
 <?php endif; ?>
 </section>
 
+<?php elseif ($section === 'account'): ?>
+<section class="panel account-panel">
+<span class="label">Konto</span>
+<h1>Passwort ändern</h1>
+<?php if ((int)($user['must_change_password'] ?? 0) === 1): ?>
+<p class="notice"><strong>Startpasswort ändern:</strong> Bevor du den Adminbereich weiter nutzt, lege bitte ein eigenes Passwort fest.</p>
+<?php else: ?>
+<p>Hier kannst du dein persönliches Admin-Passwort ändern.</p>
+<?php endif; ?>
+<form class="admin-form" method="post" autocomplete="off">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="change_own_password">
+<label for="current_password">Aktuelles Passwort</label>
+<input id="current_password" name="current_password" type="password" required autocomplete="current-password">
+<label for="new_password">Neues Passwort</label>
+<input id="new_password" name="new_password" type="password" minlength="14" maxlength="1024" required autocomplete="new-password">
+<label for="new_password_repeat">Neues Passwort wiederholen</label>
+<input id="new_password_repeat" name="new_password_repeat" type="password" minlength="14" maxlength="1024" required autocomplete="new-password">
+<p class="muted">Mindestens 14 Zeichen. Es gibt keine erzwungenen Sonderzeichenregeln; ein langes, einzigartiges Passwort ist wichtiger.</p>
+<button type="submit">Passwort ändern</button>
+</form>
+</section>
+
 <?php elseif ($section === 'system' && ($user['role'] ?? '') === 'system_admin'): ?>
 <section class="panel">
 <span class="label">Optional</span>
@@ -677,6 +761,82 @@ $recommendationLabel = match ($recommendation) {
 </form>
 </details>
 <?php endif; ?>
+</section>
+
+<section class="panel admin-accounts-panel" id="admin-accounts">
+<span class="label">Berechtigungen</span>
+<h2>Administratorkonten</h2>
+<p>System-Admins verwalten Technik, Tunnel und Systemeinstellungen. Ticket-Admins bearbeiten Tickets, FAQ und Statistiken, aber keine Systemkonfiguration.</p>
+
+<details class="admin-create-account">
+<summary>Neues Administratorkonto anlegen</summary>
+<form class="admin-form" method="post" autocomplete="off">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="create_admin">
+<label for="admin_display_name">Anzeigename</label>
+<input id="admin_display_name" name="admin_display_name" maxlength="100" required>
+<label for="admin_username">Benutzername</label>
+<input id="admin_username" name="admin_username" maxlength="100" minlength="3" required autocomplete="off" placeholder="z. B. lep">
+<label for="admin_role">Rolle</label>
+<select id="admin_role" name="admin_role">
+<option value="ticket_admin">Ticket-Admin</option>
+<option value="system_admin">System-Admin</option>
+</select>
+<label for="admin_password">Startpasswort</label>
+<input id="admin_password" name="admin_password" type="password" minlength="14" maxlength="1024" required autocomplete="new-password">
+<p class="muted">Beim ersten Login muss dieses Startpasswort geändert werden.</p>
+<button type="submit">Admin anlegen</button>
+</form>
+</details>
+
+<div class="admin-account-list">
+<?php foreach ($adminUsers as $adminAccount): ?>
+<article class="admin-account-card">
+<div class="admin-account-heading">
+<div>
+<strong><?= app_escape((string)$adminAccount['display_name']) ?></strong>
+<span>@<?= app_escape((string)$adminAccount['username']) ?></span>
+</div>
+<div>
+<span class="status <?= (int)$adminAccount['is_active'] === 1 ? 'status-done' : 'status-archived' ?>"><?= (int)$adminAccount['is_active'] === 1 ? 'Aktiv' : 'Gesperrt' ?></span>
+<span class="label"><?= $adminAccount['role']==='system_admin' ? 'System-Admin' : 'Ticket-Admin' ?></span>
+</div>
+</div>
+<p class="muted">Letzter Login: <?= app_escape(app_local_time(is_string($adminAccount['last_login_at']) ? $adminAccount['last_login_at'] : null)) ?><?php if ((int)$adminAccount['must_change_password'] === 1): ?> · Startpasswort muss geändert werden<?php endif; ?></p>
+
+<?php if ((string)$adminAccount['id'] === (string)$user['id']): ?>
+<p class="notice">Das ist dein eigenes Konto. Rolle und Aktivstatus werden hier nicht verändert.</p>
+<?php else: ?>
+<form class="admin-account-controls" method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="update_admin">
+<input type="hidden" name="admin_id" value="<?= app_escape((string)$adminAccount['id']) ?>">
+<div><label>Rolle
+<select name="admin_role">
+<option value="ticket_admin"<?= $adminAccount['role']==='ticket_admin'?' selected':'' ?>>Ticket-Admin</option>
+<option value="system_admin"<?= $adminAccount['role']==='system_admin'?' selected':'' ?>>System-Admin</option>
+</select></label></div>
+<label class="check-row"><input type="checkbox" name="admin_active" value="1"<?= (int)$adminAccount['is_active']===1?' checked':'' ?>> Konto aktiv</label>
+<button type="submit" class="secondary-button">Konto aktualisieren</button>
+</form>
+
+<details class="admin-password-reset">
+<summary>Startpasswort neu setzen</summary>
+<form class="admin-form" method="post" autocomplete="off">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="reset_admin_password">
+<input type="hidden" name="admin_id" value="<?= app_escape((string)$adminAccount['id']) ?>">
+<label>Neues Startpasswort
+<input name="reset_password" type="password" minlength="14" maxlength="1024" required autocomplete="new-password"></label>
+<label>Startpasswort wiederholen
+<input name="reset_password_repeat" type="password" minlength="14" maxlength="1024" required autocomplete="new-password"></label>
+<button type="submit">Passwort zurücksetzen</button>
+</form>
+</details>
+<?php endif; ?>
+</article>
+<?php endforeach; ?>
+</div>
 </section>
 
 <?php elseif ($detail !== null): ?>
