@@ -337,7 +337,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <section class="panel faq-admin-panel">
 <span class="label">Moderation</span>
 <h1>FAQ & Wissensaufbau</h1>
-<p>Erledigte Tickets und direkte Vorschläge werden zuerst als Entwurf gesammelt. Erst nach kurzer Prüfung werden Frage und Antwort für das Kollegium veröffentlicht.</p>
+<p>Aus erledigten Support-Tickets entstehen automatisch FAQ-Entwürfe. Erst nach kurzer Prüfung werden Frage und Antwort für das Kollegium veröffentlicht. Zusätzlich können Admins bei Bedarf selbst eine FAQ-Frage anlegen.</p>
 
 <?php if (($user['role'] ?? '') === 'system_admin'): ?>
 <form class="faq-auto-setting" method="post">
@@ -372,7 +372,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <?php foreach ($faqPending as $proposal): ?>
 <article class="faq-moderation-card" id="faq-proposal-<?= app_escape((string)$proposal['id']) ?>">
 <div class="faq-moderation-meta">
-<span class="label"><?= $proposal['source_type']==='ticket' ? 'Aus Ticket' : ($proposal['source_type']==='colleague' ? 'Kollegiums-Vorschlag' : 'Admin-Vorschlag') ?></span>
+<span class="label"><?= $proposal['source_type']==='ticket' ? 'Aus Ticket' : 'Admin-Vorschlag' ?></span>
 <?php if ($proposal['source_ticket_id'] !== null): ?><a href="/admin/?ticket=<?= rawurlencode((string)$proposal['source_ticket_id']) ?>"><?= app_escape(app_ticket_number((string)$proposal['source_ticket_id'])) ?> öffnen</a><?php endif; ?>
 </div>
 <form class="admin-form faq-review-form" method="post">
