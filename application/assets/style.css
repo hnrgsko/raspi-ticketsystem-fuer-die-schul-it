@@ -353,3 +353,23 @@ html{scroll-behavior:smooth;scroll-padding-top:1rem}
   .public-anchor-nav a{padding-left:1.4rem}
   .public-anchor-nav a::before{left:.55rem}
 }
+
+
+/* Phase 4d – FAQ-Autopilot */
+.faq-meta-left{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.faq-autopilot-badge{display:inline-block;padding:.3rem .6rem;border-radius:999px;font-size:.76rem;font-weight:800}
+.faq-autopilot-new{background:#e4f5e9;color:#25613a}
+.faq-autopilot-merge{background:#e7f0ff;color:#174b87}
+.faq-autopilot-review{background:#fff2c9;color:#664b00}
+.faq-recommendation-new{border-left:4px solid #5f9274}
+.faq-recommendation-merge{border-left:4px solid #4f86a3}
+.faq-recommendation-review{border-left:4px solid #c49a4c}
+.faq-autopilot-reason{margin:.4rem 0 1rem;padding:.75rem .85rem;border-radius:.6rem;background:#f5f7f8;color:#52636d;font-size:.92rem}
+.faq-duplicate-hint{margin:0 0 1rem;padding:1rem;border:1px solid #bfd4df;border-radius:.75rem;background:#f3f8fb}
+.faq-duplicate-heading{display:flex;justify-content:space-between;gap:.75rem;align-items:center;flex-wrap:wrap}
+.faq-duplicate-heading span{font-size:.8rem;font-weight:800;color:#24566e;background:#e3eff5;padding:.25rem .5rem;border-radius:999px}
+.faq-duplicate-hint h3{margin:.65rem 0 .35rem}.faq-duplicate-hint p{margin:.35rem 0}.faq-duplicate-hint small{color:#667780}
+.faq-merge-button{background:#24566e!important}
+.faq-entry-meta{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}
+.faq-ticket-count{display:inline-block;padding:.32rem .58rem;border-radius:999px;background:#eef3f5;color:#52636d;font-size:.78rem;font-weight:750}
+@media(max-width:600px){.faq-duplicate-heading{align-items:flex-start;flex-direction:column}.faq-review-actions .faq-merge-button{order:-1}}
