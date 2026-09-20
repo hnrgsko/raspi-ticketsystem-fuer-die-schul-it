@@ -694,6 +694,127 @@ function app_faq_public_entries(PDO $db, int $limit = 12): array
     )->fetchAll();
 }
 
+function app_faq_tokens(string $text): array
+{
+    $text = mb_strtolower($text, 'UTF-8');
+    $text = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $text) ?? '';
+    $parts = preg_split('/\s+/u', trim($text)) ?: [];
+
+    $stop = array_fill_keys([
+        'aber','als','also','am','an','auch','auf','aus','bei','bin','bis','das','dass','dem','den','der','des',
+        'die','dies','diese','dieser','ein','eine','einem','einen','einer','es','für','hat','habe','haben','ich',
+        'im','in','ist','kann','keine','kein','mit','nicht','noch','oder','sich','sie','sind','so','und','vom',
+        'von','war','was','wenn','wie','wird','wir','wo','zu','zum','zur','mein','meine','meinem','meinen',
+        'problem','frage','hilfe','bitte','folgendes','lässt','lösen','tun'
+    ], true);
+
+    $tokens = [];
+    foreach ($parts as $part) {
+        if (mb_strlen($part) < 3 || isset($stop[$part])) continue;
+        $tokens[$part] = true;
+    }
+    return array_keys($tokens);
+}
+
+function app_faq_similarity_score(string $left, string $right, bool $sameCategory): float
+{
+    $a = app_faq_tokens($left);
+    $b = app_faq_tokens($right);
+    if ($a === [] || $b === []) return $sameCategory ? 10.0 : 0.0;
+
+    $setA = array_fill_keys($a, true);
+    $setB = array_fill_keys($b, true);
+    $intersection = count(array_intersect_key($setA, $setB));
+    $union = count($setA + $setB);
+    $minSize = max(1, min(count($setA), count($setB)));
+
+    $containment = $intersection / $minSize;
+    $jaccard = $union > 0 ? $intersection / $union : 0.0;
+    $score = ($containment * 65.0) + ($jaccard * 25.0) + ($sameCategory ? 10.0 : 0.0);
+    return min(100.0, round($score, 2));
+}
+
+function app_faq_autopilot_recommendation(PDO $db, array $ticket, string $question, string $answerDraft): array
+{
+    $best = null;
+    $entries = $db->query(
+        "SELECT id,category_id,question,answer
+         FROM faq_entries
+         WHERE status='published'
+         ORDER BY updated_at DESC,id DESC
+         LIMIT 250"
+    )->fetchAll();
+
+    foreach ($entries as $entry) {
+        $sameCategory = (string)($entry['category_id'] ?? '') !== ''
+            && (string)($entry['category_id'] ?? '') === (string)($ticket['category_id'] ?? '');
+        $score = app_faq_similarity_score(
+            $question . ' ' . (string)($ticket['description'] ?? ''),
+            (string)$entry['question'] . ' ' . (string)$entry['answer'],
+            $sameCategory
+        );
+        if ($best === null || $score > $best['score']) {
+            $best = ['id'=>(string)$entry['id'],'score'=>$score];
+        }
+    }
+
+    $hasSpecificDevice = trim((string)($ticket['inventory_number'] ?? '')) !== ''
+        || trim((string)($ticket['serial_number'] ?? '')) !== '';
+    $isDefect = ($ticket['type'] ?? '') === 'defect';
+
+    if ($best !== null && $best['score'] >= 62.0) {
+        return [
+            'recommendation'=>'merge',
+            'reason'=>'Sehr ähnliche veröffentlichte FAQ gefunden. Prüfe, ob die bestehende FAQ ergänzt werden sollte.',
+            'suggested_entry_id'=>$best['id'],
+            'similarity_score'=>$best['score'],
+        ];
+    }
+
+    if ($answerDraft === '') {
+        return [
+            'recommendation'=>'review',
+            'reason'=>'Es wurde noch keine interne Lösungsnotiz gefunden. Vor Veröffentlichung muss eine allgemeine Lösung ergänzt werden.',
+            'suggested_entry_id'=>$best !== null && $best['score'] >= 42.0 ? $best['id'] : null,
+            'similarity_score'=>$best['score'] ?? null,
+        ];
+    }
+
+    if ($isDefect && $hasSpecificDevice) {
+        return [
+            'recommendation'=>'review',
+            'reason'=>'Der Fall bezieht sich auf ein konkretes inventarisiertes Gerät. Prüfe, ob daraus wirklich eine allgemeine FAQ entstehen kann.',
+            'suggested_entry_id'=>$best !== null && $best['score'] >= 42.0 ? $best['id'] : null,
+            'similarity_score'=>$best['score'] ?? null,
+        ];
+    }
+
+    if ($best !== null && $best['score'] >= 42.0) {
+        return [
+            'recommendation'=>'review',
+            'reason'=>'Es gibt eine teilweise ähnliche FAQ. Vor einer neuen FAQ bitte kurz auf Überschneidungen prüfen.',
+            'suggested_entry_id'=>$best['id'],
+            'similarity_score'=>$best['score'],
+        ];
+    }
+
+    return [
+        'recommendation'=>'new',
+        'reason'=>'Kein ausreichend ähnlicher veröffentlichter FAQ-Eintrag gefunden.',
+        'suggested_entry_id'=>null,
+        'similarity_score'=>$best['score'] ?? null,
+    ];
+}
+
+function app_faq_link_ticket(PDO $db, string $entryId, ?string $ticketId): void
+{
+    if ($ticketId === null || preg_match('/\A[1-9][0-9]{0,19}\z/', $ticketId) !== 1) return;
+    $q = $db->prepare(
+        'INSERT IGNORE INTO faq_entry_tickets(entry_id,ticket_id) VALUES(:entry,:ticket)'
+    );
+    $q->execute(['entry'=>$entryId,'ticket'=>$ticketId]);
+}
+
 function app_faq_ticket_question(array $ticket): string
 {
     $subject = trim((string)($ticket['defect_subject'] ?? ''));
@@ -732,7 +853,7 @@ function app_faq_ticket_proposal(PDO $db, string $ticketId, string $adminId): st
     if ($existingId !== false) return (string)$existingId;
 
     $q = $db->prepare(
-        'SELECT id,type,status,category_id,defect_subject,description
+        'SELECT id,type,status,category_id,defect_subject,description,inventory_number,serial_number
          FROM tickets WHERE id=:id'
     );
     $q->execute(['id'=>$ticketId]);
@@ -749,16 +870,25 @@ function app_faq_ticket_proposal(PDO $db, string $ticketId, string $adminId): st
     $latest = $comment->fetchColumn();
     $answerDraft = is_string($latest) ? trim($latest) : '';
 
+    $question = app_faq_ticket_question($ticket);
+    $recommendation = app_faq_autopilot_recommendation($db, $ticket, $question, $answerDraft);
+
     $insert = $db->prepare(
         "INSERT INTO faq_proposals
-        (source_type,source_ticket_id,category_id,question,answer_draft,status,created_by_admin_id)
-        VALUES('ticket',:ticket,:category,:question,:answer,'pending',:admin)"
+        (source_type,source_ticket_id,category_id,question,answer_draft,
+         recommendation,recommendation_reason,suggested_entry_id,similarity_score,status,created_by_admin_id)
+        VALUES('ticket',:ticket,:category,:question,:answer,
+         :recommendation,:reason,:suggested,:score,'pending',:admin)"
     );
     $insert->execute([
         'ticket'=>$ticketId,
         'category'=>$ticket['category_id'],
-        'question'=>app_faq_ticket_question($ticket),
+        'question'=>$question,
         'answer'=>$answerDraft === '' ? null : $answerDraft,
+        'recommendation'=>$recommendation['recommendation'],
+        'reason'=>$recommendation['reason'],
+        'suggested'=>$recommendation['suggested_entry_id'],
+        'score'=>$recommendation['similarity_score'],
         'admin'=>$adminId,
     ]);
     return (string)$db->lastInsertId();
@@ -791,12 +921,16 @@ function app_faq_admin_pending(PDO $db): array
 {
     if (!app_faq_tables_ready($db)) return [];
     return $db->query(
-        "SELECT p.*,c.name AS category_name,t.id AS ticket_exists
+        "SELECT p.*,c.name AS category_name,t.id AS ticket_exists,
+                sf.question AS suggested_question,sf.answer AS suggested_answer,
+                (SELECT COUNT(*) FROM faq_entry_tickets ft WHERE ft.entry_id=sf.id) AS suggested_ticket_count
          FROM faq_proposals p
          LEFT JOIN categories c ON c.id=p.category_id
          LEFT JOIN tickets t ON t.id=p.source_ticket_id
+         LEFT JOIN faq_entries sf ON sf.id=p.suggested_entry_id
          WHERE p.status='pending'
-         ORDER BY p.created_at ASC,p.id ASC"
+         ORDER BY CASE p.recommendation WHEN 'merge' THEN 0 WHEN 'review' THEN 1 ELSE 2 END,
+                  p.created_at ASC,p.id ASC"
     )->fetchAll();
 }
 
@@ -804,7 +938,8 @@ function app_faq_admin_entries(PDO $db): array
 {
     if (!app_faq_tables_ready($db)) return [];
     return $db->query(
-        "SELECT f.*,c.name AS category_name
+        "SELECT f.*,c.name AS category_name,
+                (SELECT COUNT(*) FROM faq_entry_tickets ft WHERE ft.entry_id=f.id) AS ticket_count
          FROM faq_entries f
          LEFT JOIN categories c ON c.id=f.category_id
          ORDER BY CASE f.status WHEN 'published' THEN 0 ELSE 1 END,
@@ -826,7 +961,7 @@ function app_faq_admin_publish(PDO $db, string $proposalId, string $adminId, arr
 
     $db->beginTransaction();
     try {
-        $lock = $db->prepare('SELECT id,status FROM faq_proposals WHERE id=:id FOR UPDATE');
+        $lock = $db->prepare('SELECT id,status,source_ticket_id FROM faq_proposals WHERE id=:id FOR UPDATE');
         $lock->execute(['id'=>$proposalId]);
         $proposal = $lock->fetch();
         if ($proposal === false || $proposal['status'] !== 'pending') {
@@ -846,6 +981,9 @@ function app_faq_admin_publish(PDO $db, string $proposalId, string $adminId, arr
             'created_admin'=>$adminId,
             'updated_admin'=>$adminId,
         ]);
+        $entryId = (string)$db->lastInsertId();
+        app_faq_link_ticket($db, $entryId, is_string($proposal['source_ticket_id'] ?? null)
+            ? (string)$proposal['source_ticket_id'] : null);
 
         $update = $db->prepare(
             "UPDATE faq_proposals
@@ -854,6 +992,78 @@ function app_faq_admin_publish(PDO $db, string $proposalId, string $adminId, arr
              WHERE id=:id"
         );
         $update->execute([
+            'question'=>$question,
+            'answer'=>$answer,
+            'category'=>$categoryId,
+            'admin'=>$adminId,
+            'id'=>$proposalId,
+        ]);
+        $db->commit();
+    } catch (Throwable $error) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $error;
+    }
+}
+
+function app_faq_admin_merge(PDO $db, string $proposalId, string $adminId, array $input): void
+{
+    if (preg_match('/\A[1-9][0-9]{0,19}\z/', $proposalId) !== 1) {
+        throw new InvalidArgumentException('Ungültiger FAQ-Entwurf.');
+    }
+    $question = app_text($input['faq_question'] ?? '', 400, true, 'Problemfrage');
+    $answer = app_text($input['faq_answer'] ?? '', 8000, true, 'FAQ-Antwort');
+    $categoryId = app_faq_category_id($db, $input['faq_category_id'] ?? '');
+
+    $db->beginTransaction();
+    try {
+        $lock = $db->prepare(
+            'SELECT id,status,source_ticket_id,suggested_entry_id
+             FROM faq_proposals WHERE id=:id FOR UPDATE'
+        );
+        $lock->execute(['id'=>$proposalId]);
+        $proposal = $lock->fetch();
+        if ($proposal === false || $proposal['status'] !== 'pending') {
+            throw new InvalidArgumentException('Dieser FAQ-Entwurf ist nicht mehr zur Moderation verfügbar.');
+        }
+
+        $entryId = is_string($proposal['suggested_entry_id'] ?? null)
+            ? (string)$proposal['suggested_entry_id'] : '';
+        if (preg_match('/\A[1-9][0-9]{0,19}\z/', $entryId) !== 1) {
+            throw new InvalidArgumentException('Es ist keine bestehende FAQ zum Zusammenführen hinterlegt.');
+        }
+
+        $updateEntry = $db->prepare(
+            "UPDATE faq_entries
+             SET question=:question,answer=:answer,category_id=:category,
+                 status='published',updated_by_admin_id=:admin,
+                 published_at=COALESCE(published_at,UTC_TIMESTAMP(6)),updated_at=UTC_TIMESTAMP(6)
+             WHERE id=:id"
+        );
+        $updateEntry->execute([
+            'question'=>$question,
+            'answer'=>$answer,
+            'category'=>$categoryId,
+            'admin'=>$adminId,
+            'id'=>$entryId,
+        ]);
+        if ($updateEntry->rowCount() < 1) {
+            $exists = $db->prepare('SELECT id FROM faq_entries WHERE id=:id');
+            $exists->execute(['id'=>$entryId]);
+            if ($exists->fetchColumn() === false) {
+                throw new InvalidArgumentException('Die vorgeschlagene bestehende FAQ wurde nicht gefunden.');
+            }
+        }
+
+        app_faq_link_ticket($db, $entryId, is_string($proposal['source_ticket_id'] ?? null)
+            ? (string)$proposal['source_ticket_id'] : null);
+
+        $updateProposal = $db->prepare(
+            "UPDATE faq_proposals
+             SET question=:question,answer_draft=:answer,category_id=:category,status='accepted',
+                 moderated_by_admin_id=:admin,moderated_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6)
+             WHERE id=:id"
+        );
+        $updateProposal->execute([
             'question'=>$question,
             'answer'=>$answer,
             'category'=>$categoryId,
