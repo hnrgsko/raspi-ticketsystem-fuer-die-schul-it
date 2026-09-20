@@ -288,6 +288,22 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'check_updates') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen eine Updateprüfung auslösen.');
+            }
+            $result = app_system_request('check_updates', [], 40);
+            if (!empty($result['error'])) {
+                $_SESSION['admin_notice'] = 'Updateprüfung abgeschlossen, Releasequelle derzeit nicht verfügbar.';
+            } elseif (($result['available'] ?? false) === true) {
+                $_SESSION['admin_notice'] = 'Neue Version ' . (string)$result['latest_version'] . ' ist verfügbar.';
+            } else {
+                $_SESSION['admin_notice'] = 'Keine neuere stabile Version gefunden.';
+            }
+            header('Location: /admin/?section=system#updates', true, 303);
+            exit;
+        }
+
         if ($action === 'faq_settings') {
             if (($user['role'] ?? '') !== 'system_admin') {
                 throw new RuntimeException('Nur System-Administratoren dürfen FAQ-Systemeinstellungen ändern.');
@@ -386,6 +402,14 @@ $ticketStats = ($user !== null && $db instanceof PDO && $section === 'stats') ? 
 $usageDaily = ($user !== null && $usageReady && $section === 'stats') ? app_admin_usage_daily($db, 30) : [];
 $adminUsers = ($user !== null && ($user['role'] ?? '') === 'system_admin' && $section === 'system')
     ? app_admin_user_list($db) : [];
+$updateStatus = null;
+if ($user !== null) {
+    try {
+        $updateStatus = app_system_request('update_status', [], 5);
+    } catch (Throwable) {
+        $updateStatus = null;
+    }
+}
 $tunnelStatus = null;
 $tunnelStatusError = '';
 if ($user !== null && ($user['role'] ?? '') === 'system_admin' && $section === 'system') {
@@ -457,6 +481,16 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <a href="/">Kollegiumsseite</a>
 <?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?>
 </nav>
+
+<?php if (is_array($updateStatus) && ($updateStatus['available'] ?? false) === true): ?>
+<aside class="update-banner" role="status">
+<div>
+<strong>Neue Version <?= app_escape((string)$updateStatus['latest_version']) ?> verfügbar</strong>
+<span>Eine neuere stabile Version des Schul-IT Ticketsystems wurde veröffentlicht.</span>
+</div>
+<?php if (($user['role'] ?? '') === 'system_admin'): ?><a class="button secondary" href="/admin/?section=system#updates">Update ansehen</a><?php else: ?><span class="muted">Installation durch einen System-Admin.</span><?php endif; ?>
+</aside>
+<?php endif; ?>
 
 <?php if ($section === 'stats'): ?>
 <section class="panel stats-panel">
@@ -665,9 +699,45 @@ $recommendationLabel = match ($recommendation) {
 </section>
 
 <?php elseif ($section === 'system' && ($user['role'] ?? '') === 'system_admin'): ?>
+<section class="panel system-update-panel" id="updates">
+<span class="label">Software</span>
+<h1>Updates</h1>
+<?php if (!is_array($updateStatus)): ?>
+<p class="notice">Der lokale Update-Prüfdienst ist derzeit nicht erreichbar.</p>
+<?php else: ?>
+<div class="system-status-grid">
+<div><span>Installierte Version</span><strong><?= app_escape((string)($updateStatus['installed_version'] ?: 'unbekannt')) ?></strong></div>
+<div><span>Updatekanal</span><strong><?= app_escape((string)($updateStatus['channel'] ?: 'development')) ?></strong></div>
+<div><span>Letzte Prüfung</span><strong><?= !empty($updateStatus['checked_at']) ? app_escape(app_local_time((string)$updateStatus['checked_at'])) : 'Noch nicht geprüft' ?></strong></div>
+<div><span>Status</span><strong><?= ($updateStatus['available'] ?? false) ? 'Update verfügbar' : 'Kein neueres Release erkannt' ?></strong></div>
+</div>
+
+<?php if (!empty($updateStatus['error'])): ?>
+<p class="notice"><?= app_escape((string)$updateStatus['error']) ?></p>
+<?php endif; ?>
+
+<?php if (($updateStatus['available'] ?? false) === true): ?>
+<div class="update-available-card">
+<h2>Version <?= app_escape((string)$updateStatus['latest_version']) ?> verfügbar</h2>
+<?php if (!empty($updateStatus['published_at'])): ?><p class="muted">Veröffentlicht: <?= app_escape(app_local_time((string)$updateStatus['published_at'])) ?></p><?php endif; ?>
+<?php if (!empty($updateStatus['release_notes'])): ?><details><summary>Änderungen ansehen</summary><div class="release-notes"><?= nl2br(app_escape((string)$updateStatus['release_notes'])) ?></div></details><?php endif; ?>
+<p class="notice"><strong>Noch nicht automatisch installierbar:</strong> Die Installationsfunktion wird erst aktiviert, sobald Releasepakete mit der geplanten Signaturprüfung veröffentlicht werden. Bis dahin lädt das System bewusst keinen Anwendungscode automatisch herunter.</p>
+</div>
+<?php else: ?>
+<p>Der Prüfdienst fragt regelmäßig ausschließlich die öffentliche Releasequelle ab. Es werden dabei keine Ticket-, Schul- oder Benutzerdaten übertragen.</p>
+<?php endif; ?>
+
+<form method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="check_updates">
+<button type="submit" class="secondary-button">Jetzt nach Updates suchen</button>
+</form>
+<?php endif; ?>
+</section>
+
 <section class="panel">
 <span class="label">Optional</span>
-<h1>KI-Assistent</h1>
+<h2>KI-Assistent</h2>
 <p>Hier kann eine Schule einen eigenen AIS.chat- oder anderen KI-Assistenten hinterlegen. Ohne Aktivierung erscheint im Ticketsystem kein Assistenten-Link.</p>
 <form class="admin-form" method="post">
 <input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
@@ -981,6 +1051,6 @@ $recommendationLabel = match ($recommendation) {
 <?php endif; ?>
 <?php endif; ?>
 </main>
-<footer class="admin-footer">Schul-IT Ticketsystem · lokale Raspberry-Pi-Instanz</footer>
+<footer class="admin-footer">Schul-IT Ticketsystem · lokale Raspberry-Pi-Instanz<?php if (is_array($updateStatus) && !empty($updateStatus['installed_version'])): ?> · Version <?= app_escape((string)$updateStatus['installed_version']) ?><?= ($updateStatus['available'] ?? false) ? ' · Update verfügbar' : '' ?><?php endif; ?></footer>
 </body>
 </html>
