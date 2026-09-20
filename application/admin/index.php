@@ -188,6 +188,16 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'faq_settings') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen FAQ-Systemeinstellungen ändern.');
+            }
+            app_faq_admin_save_settings($db, $_POST);
+            $_SESSION['admin_notice'] = 'FAQ-Automatik wurde gespeichert.';
+            header('Location: /admin/?section=faq', true, 303);
+            exit;
+        }
+
         if ($action === 'faq_from_ticket') {
             $proposalId = app_faq_ticket_proposal(
                 $db,
@@ -259,6 +269,7 @@ $assistant = ($db instanceof PDO) ? app_assistant_settings($db) : [
     'widget_url'=>null,
 ];
 $faqReady = $db instanceof PDO && app_faq_tables_ready($db);
+$faqAutoFromDone = $db instanceof PDO ? app_faq_auto_from_done($db) : true;
 $faqPending = ($user !== null && $faqReady && $section === 'faq') ? app_faq_admin_pending($db) : [];
 $faqEntries = ($user !== null && $faqReady && $section === 'faq') ? app_faq_admin_entries($db) : [];
 $ticketId = is_string($_GET['ticket'] ?? null) ? $_GET['ticket'] : '';
@@ -327,6 +338,16 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <span class="label">Moderation</span>
 <h1>FAQ & Wissensaufbau</h1>
 <p>Erledigte Tickets und direkte Vorschläge werden zuerst als Entwurf gesammelt. Erst nach kurzer Prüfung werden Frage und Antwort für das Kollegium veröffentlicht.</p>
+
+<?php if (($user['role'] ?? '') === 'system_admin'): ?>
+<form class="faq-auto-setting" method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="faq_settings">
+<label class="check-row"><input type="checkbox" name="faq_auto_from_done" value="1"<?= $faqAutoFromDone ? ' checked' : '' ?>> Bei erstmaligem Status „Erledigt“ automatisch einen FAQ-Entwurf erzeugen</label>
+<p class="muted">Der Entwurf wird nicht veröffentlicht. Er landet nur in der Moderationsliste.</p>
+<button type="submit" class="secondary-button">Automatik speichern</button>
+</form>
+<?php endif; ?>
 
 <details class="faq-create-box">
 <summary>Neue FAQ-Frage direkt formulieren</summary>
