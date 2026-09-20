@@ -147,11 +147,7 @@ $assistantWidgetActive = $authorized
   <p>Beschreibe dein Problem möglichst konkret. Der Assistent kann dir direkt bei typischen Fragen zu Anwendungen, Geräten oder Zugängen helfen.</p>
   <?php if ($assistantWidgetActive): ?>
   <div class="assistant-inline-wrap">
-    <div class="assistant-inline-heading">
-      <span class="experimental-badge">Experimentell</span>
-      <span>Bisher mit AIS.chat getestet</span>
-    </div>
-    <div class="assistant-inline-frame">
+      <div class="assistant-inline-frame">
       <iframe
         title="<?= app_escape((string)$assistant['label']) ?>"
         src="<?= app_escape((string)$assistant['widget_url']) ?>"
@@ -266,18 +262,17 @@ $assistantWidgetActive = $authorized
 </footer>
 
 <?php if ($assistantWidgetActive): ?>
-<aside class="assistant-widget" aria-label="Experimenteller KI-Assistent">
+<aside class="assistant-widget" aria-label="KI-Assistent">
 <details id="assistant-widget">
   <summary aria-label="<?= app_escape((string)$assistant['label']) ?> öffnen"><svg class="assistant-bubble-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4.5h14a2.5 2.5 0 0 1 2.5 2.5v8A2.5 2.5 0 0 1 19 17.5h-7.2L7 21v-3.5H5A2.5 2.5 0 0 1 2.5 15V7A2.5 2.5 0 0 1 5 4.5Z"/><path d="M7.5 9h9M7.5 13h6"/></svg></summary>
   <section class="assistant-widget-panel" aria-labelledby="assistant-widget-title">
     <div class="assistant-widget-heading">
       <div>
-        <span class="experimental-badge">Experimentell</span>
         <h2 id="assistant-widget-title"><?= app_escape((string)$assistant['label']) ?></h2>
       </div>
       <button type="button" id="assistant-widget-close" class="secondary" hidden>Schließen</button>
     </div>
-    <p class="assistant-widget-note">Experimentelle eingebettete Darstellung. Getestet wurde sie bisher mit AIS.chat-Dialogpartnern; andere Dienste funktionieren nur, wenn sie iframe-Einbettung erlauben. KI kann Fehler machen. Keine Passwörter oder unnötigen personenbezogenen Daten eingeben.</p>
+    <p class="assistant-widget-note">KI kann Fehler machen. Bitte prüfe Antworten vor der Verwendung und gib keine Passwörter oder unnötigen personenbezogenen Daten ein.</p>
     <div id="assistant-widget-frame" data-chat-url="<?= app_escape((string)$assistant['widget_url']) ?>"></div>
     <noscript><p>Für die eingebettete Sprechblase ist JavaScript erforderlich. Der Assistent kann weiterhin über den normalen Link geöffnet werden.</p></noscript>
   </section>
