@@ -31,6 +31,9 @@ try {
         'assistant_inline_use',
         'assistant_bubble_open',
         'assistant_external_open',
+        'faq_public_open',
+        'faq_suggestion_open',
+        'faq_suggestion_helpful',
     ], true)) {
         http_response_code(400);
         exit;
