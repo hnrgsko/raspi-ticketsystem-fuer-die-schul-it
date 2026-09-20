@@ -274,7 +274,7 @@ Implementiert, nächster Realtest:
 - keine automatische Veröffentlichung
 - Moderationsbereich **Admin → FAQ**
 - direkte FAQ-Fragen durch Admins
-- anonyme Problemfragen-Vorschläge aus dem Kollegium
+- FAQ entstehen aus normalen Support-Tickets des Kollegiums
 - veröffentlichte FAQ auf der Kollegiumsseite
 - FAQ ausblenden und wieder veröffentlichen
 - Automatik durch System-Admins abschaltbar
