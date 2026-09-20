@@ -617,3 +617,267 @@ function app_admin_archive(PDO $db, string $id, bool $archive): void
         : 'UPDATE tickets SET archived_at=NULL,updated_at=UTC_TIMESTAMP(6) WHERE id=:id';
     $db->prepare($sql)->execute(['id' => $id]);
 }
+
+
+function app_faq_tables_ready(PDO $db): bool
+{
+    try {
+        $db->query('SELECT id FROM faq_proposals LIMIT 0');
+        $db->query('SELECT id FROM faq_entries LIMIT 0');
+        return true;
+    } catch (Throwable) {
+        return false;
+    }
+}
+
+function app_faq_category_id(PDO $db, mixed $value): ?string
+{
+    if ($value === null || $value === '') return null;
+    if (!is_string($value) || preg_match('/\A[1-9][0-9]{0,18}\z/', $value) !== 1) {
+        throw new InvalidArgumentException('Ungültige FAQ-Kategorie.');
+    }
+    $q = $db->prepare('SELECT id FROM categories WHERE id=:id AND is_active=1');
+    $q->execute(['id' => $value]);
+    $id = $q->fetchColumn();
+    if ($id === false) throw new InvalidArgumentException('Die FAQ-Kategorie ist nicht verfügbar.');
+    return (string)$id;
+}
+
+function app_faq_public_entries(PDO $db, int $limit = 12): array
+{
+    if (!app_faq_tables_ready($db)) return [];
+    $limit = max(1, min(50, $limit));
+    return $db->query(
+        "SELECT f.id,f.question,f.answer,f.weight,c.name AS category_name
+         FROM faq_entries f
+         LEFT JOIN categories c ON c.id=f.category_id
+         WHERE f.status='published'
+         ORDER BY f.weight DESC,f.published_at DESC,f.id DESC
+         LIMIT " . $limit
+    )->fetchAll();
+}
+
+function app_faq_colleague_suggest(PDO $db, array $input): string
+{
+    if (!app_faq_tables_ready($db)) {
+        throw new RuntimeException('Die FAQ-Funktion ist noch nicht eingerichtet.');
+    }
+    $question = app_text($input['faq_question'] ?? '', 400, true, 'Problemfrage');
+    $categoryId = app_faq_category_id($db, $input['faq_category_id'] ?? '');
+
+    $q = $db->prepare(
+        "INSERT INTO faq_proposals(source_type,category_id,question,answer_draft,status)
+         VALUES('colleague',:category,:question,NULL,'pending')"
+    );
+    $q->execute(['category'=>$categoryId, 'question'=>$question]);
+    return (string)$db->lastInsertId();
+}
+
+function app_faq_ticket_question(array $ticket): string
+{
+    $subject = trim((string)($ticket['defect_subject'] ?? ''));
+    $description = trim((string)($ticket['description'] ?? ''));
+    $source = $subject !== '' ? $subject : $description;
+    $source = trim((string)preg_replace('/\s+/u', ' ', $source));
+    if ($source === '') return 'Wie lässt sich dieses IT-Problem lösen?';
+
+    if (mb_strlen($source) > 260) {
+        $source = rtrim(mb_substr($source, 0, 257)) . '…';
+    }
+    if (str_ends_with($source, '?')) return $source;
+
+    if (($ticket['type'] ?? '') === 'defect') {
+        return 'Was kann ich tun, wenn folgendes Gerät oder Zubehör nicht funktioniert: ' . rtrim($source, '.!') . '?';
+    }
+    return 'Wie lässt sich folgendes IT-Problem lösen: ' . rtrim($source, '.!') . '?';
+}
+
+function app_faq_ticket_proposal(PDO $db, string $ticketId, string $adminId): string
+{
+    if (!app_faq_tables_ready($db)) {
+        throw new RuntimeException('Die FAQ-Funktion ist noch nicht eingerichtet.');
+    }
+    if (preg_match('/\A[1-9][0-9]{0,19}\z/', $ticketId) !== 1) {
+        throw new InvalidArgumentException('Ungültige Ticketnummer.');
+    }
+
+    $existing = $db->prepare(
+        "SELECT id FROM faq_proposals
+         WHERE source_type='ticket' AND source_ticket_id=:ticket AND status IN ('pending','accepted')
+         ORDER BY id DESC LIMIT 1"
+    );
+    $existing->execute(['ticket'=>$ticketId]);
+    $existingId = $existing->fetchColumn();
+    if ($existingId !== false) return (string)$existingId;
+
+    $q = $db->prepare(
+        'SELECT id,type,status,category_id,defect_subject,description
+         FROM tickets WHERE id=:id'
+    );
+    $q->execute(['id'=>$ticketId]);
+    $ticket = $q->fetch();
+    if ($ticket === false) throw new InvalidArgumentException('Ticket nicht gefunden.');
+    if ($ticket['status'] !== 'done') {
+        throw new InvalidArgumentException('FAQ-Entwürfe können automatisch erst aus erledigten Tickets erzeugt werden.');
+    }
+
+    $comment = $db->prepare(
+        'SELECT body FROM ticket_comments WHERE ticket_id=:ticket ORDER BY created_at DESC,id DESC LIMIT 1'
+    );
+    $comment->execute(['ticket'=>$ticketId]);
+    $latest = $comment->fetchColumn();
+    $answerDraft = is_string($latest) ? trim($latest) : '';
+
+    $insert = $db->prepare(
+        "INSERT INTO faq_proposals
+        (source_type,source_ticket_id,category_id,question,answer_draft,status,created_by_admin_id)
+        VALUES('ticket',:ticket,:category,:question,:answer,'pending',:admin)"
+    );
+    $insert->execute([
+        'ticket'=>$ticketId,
+        'category'=>$ticket['category_id'],
+        'question'=>app_faq_ticket_question($ticket),
+        'answer'=>$answerDraft === '' ? null : $answerDraft,
+        'admin'=>$adminId,
+    ]);
+    return (string)$db->lastInsertId();
+}
+
+function app_faq_admin_create_proposal(PDO $db, string $adminId, array $input): string
+{
+    if (!app_faq_tables_ready($db)) {
+        throw new RuntimeException('Die FAQ-Funktion ist noch nicht eingerichtet.');
+    }
+    $question = app_text($input['faq_question'] ?? '', 400, true, 'Problemfrage');
+    $answer = app_text($input['faq_answer'] ?? '', 8000, false, 'Antwort');
+    $categoryId = app_faq_category_id($db, $input['faq_category_id'] ?? '');
+
+    $q = $db->prepare(
+        "INSERT INTO faq_proposals
+        (source_type,category_id,question,answer_draft,status,created_by_admin_id)
+        VALUES('admin',:category,:question,:answer,'pending',:admin)"
+    );
+    $q->execute([
+        'category'=>$categoryId,
+        'question'=>$question,
+        'answer'=>$answer === '' ? null : $answer,
+        'admin'=>$adminId,
+    ]);
+    return (string)$db->lastInsertId();
+}
+
+function app_faq_admin_pending(PDO $db): array
+{
+    if (!app_faq_tables_ready($db)) return [];
+    return $db->query(
+        "SELECT p.*,c.name AS category_name,t.id AS ticket_exists
+         FROM faq_proposals p
+         LEFT JOIN categories c ON c.id=p.category_id
+         LEFT JOIN tickets t ON t.id=p.source_ticket_id
+         WHERE p.status='pending'
+         ORDER BY p.created_at ASC,p.id ASC"
+    )->fetchAll();
+}
+
+function app_faq_admin_entries(PDO $db): array
+{
+    if (!app_faq_tables_ready($db)) return [];
+    return $db->query(
+        "SELECT f.*,c.name AS category_name
+         FROM faq_entries f
+         LEFT JOIN categories c ON c.id=f.category_id
+         ORDER BY CASE f.status WHEN 'published' THEN 0 ELSE 1 END,
+                  f.updated_at DESC,f.id DESC"
+    )->fetchAll();
+}
+
+function app_faq_admin_publish(PDO $db, string $proposalId, string $adminId, array $input): void
+{
+    if (!app_faq_tables_ready($db)) {
+        throw new RuntimeException('Die FAQ-Funktion ist noch nicht eingerichtet.');
+    }
+    if (preg_match('/\A[1-9][0-9]{0,19}\z/', $proposalId) !== 1) {
+        throw new InvalidArgumentException('Ungültiger FAQ-Entwurf.');
+    }
+    $question = app_text($input['faq_question'] ?? '', 400, true, 'Problemfrage');
+    $answer = app_text($input['faq_answer'] ?? '', 8000, true, 'FAQ-Antwort');
+    $categoryId = app_faq_category_id($db, $input['faq_category_id'] ?? '');
+
+    $db->beginTransaction();
+    try {
+        $lock = $db->prepare('SELECT id,status FROM faq_proposals WHERE id=:id FOR UPDATE');
+        $lock->execute(['id'=>$proposalId]);
+        $proposal = $lock->fetch();
+        if ($proposal === false || $proposal['status'] !== 'pending') {
+            throw new InvalidArgumentException('Dieser FAQ-Entwurf ist nicht mehr zur Moderation verfügbar.');
+        }
+
+        $insert = $db->prepare(
+            "INSERT INTO faq_entries
+            (proposal_id,category_id,question,answer,status,created_by_admin_id,updated_by_admin_id,published_at)
+            VALUES(:proposal,:category,:question,:answer,'published',:admin,:admin,UTC_TIMESTAMP(6))"
+        );
+        $insert->execute([
+            'proposal'=>$proposalId,
+            'category'=>$categoryId,
+            'question'=>$question,
+            'answer'=>$answer,
+            'admin'=>$adminId,
+        ]);
+
+        $update = $db->prepare(
+            "UPDATE faq_proposals
+             SET question=:question,answer_draft=:answer,category_id=:category,status='accepted',
+                 moderated_by_admin_id=:admin,moderated_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6)
+             WHERE id=:id"
+        );
+        $update->execute([
+            'question'=>$question,
+            'answer'=>$answer,
+            'category'=>$categoryId,
+            'admin'=>$adminId,
+            'id'=>$proposalId,
+        ]);
+        $db->commit();
+    } catch (Throwable $error) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $error;
+    }
+}
+
+function app_faq_admin_reject(PDO $db, string $proposalId, string $adminId): void
+{
+    if (preg_match('/\A[1-9][0-9]{0,19}\z/', $proposalId) !== 1) {
+        throw new InvalidArgumentException('Ungültiger FAQ-Entwurf.');
+    }
+    $q = $db->prepare(
+        "UPDATE faq_proposals
+         SET status='rejected',moderated_by_admin_id=:admin,moderated_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6)
+         WHERE id=:id AND status='pending'"
+    );
+    $q->execute(['admin'=>$adminId,'id'=>$proposalId]);
+    if ($q->rowCount() !== 1) {
+        throw new InvalidArgumentException('Dieser FAQ-Entwurf ist nicht mehr zur Moderation verfügbar.');
+    }
+}
+
+function app_faq_admin_set_entry_status(PDO $db, string $entryId, string $adminId, string $status): void
+{
+    if (!in_array($status, ['published','inactive'], true)
+        || preg_match('/\A[1-9][0-9]{0,19}\z/', $entryId) !== 1) {
+        throw new InvalidArgumentException('Ungültige FAQ-Aktion.');
+    }
+    $q = $db->prepare(
+        "UPDATE faq_entries
+         SET status=:status,updated_by_admin_id=:admin,
+             published_at=CASE WHEN :status='published' THEN COALESCE(published_at,UTC_TIMESTAMP(6)) ELSE published_at END,
+             updated_at=UTC_TIMESTAMP(6)
+         WHERE id=:id"
+    );
+    $q->execute(['status'=>$status,'admin'=>$adminId,'id'=>$entryId]);
+    if ($q->rowCount() < 1) {
+        $exists = $db->prepare('SELECT id FROM faq_entries WHERE id=:id');
+        $exists->execute(['id'=>$entryId]);
+        if ($exists->fetchColumn() === false) throw new InvalidArgumentException('FAQ-Eintrag nicht gefunden.');
+    }
+}
