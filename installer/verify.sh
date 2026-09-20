@@ -143,8 +143,8 @@ mariadb_version="$(mariadb --batch --skip-column-names -e 'SELECT VERSION();' 2>
 apache_version="$(apache2ctl -v | awk -F': ' '/Server version/ {print $2}')"
 
 tmp="$(mktemp)"
-jq -n   --arg install_version "${SCHULIT_INSTALL_VERSION:-0.4.0-dev}"   --arg php "${php_version}"   --arg mariadb "${mariadb_version}"   --arg apache "${apache_version}"   --arg verified_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"   '{
-    phase: 4,
+jq -n   --arg install_version "${SCHULIT_INSTALL_VERSION:-0.5.0-dev}"   --arg php "${php_version}"   --arg mariadb "${mariadb_version}"   --arg apache "${apache_version}"   --arg verified_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"   '{
+    phase: 5,
     install_version: $install_version,
     php: $php,
     mariadb: $mariadb,
