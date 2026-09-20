@@ -13,7 +13,6 @@ app_try_public_token();
 $error = '';
 $successTicket = null;
 $statusResult = null;
-$faqSuggestionSent = false;
 $ready = false;
 $db = null;
 $schoolName = 'Schul-IT Ticketsystem';
@@ -64,12 +63,6 @@ if ($authorized && $ready && $db instanceof PDO && $_SERVER['REQUEST_METHOD'] ==
             if ($statusResult === null) {
                 throw new RuntimeException('Kein passendes Ticket gefunden. Bitte Schulkennung und Ticketnummer prüfen.');
             }
-        } elseif ($action === 'suggest_faq') {
-            if (!app_session_rate($_SESSION, 'faq_suggest', 5, 900)) {
-                throw new RuntimeException('Zu viele FAQ-Vorschläge. Bitte später erneut versuchen.');
-            }
-            app_faq_colleague_suggest($db, $_POST);
-            $faqSuggestionSent = true;
         } else {
             throw new RuntimeException('Unbekannte Aktion.');
         }
@@ -213,23 +206,6 @@ $assistantWidgetActive = $authorized
 </div>
 <?php endif; ?>
 
-<details class="faq-suggest-box"<?= $faqSuggestionSent ? ' open' : '' ?>>
-<summary>Fehlt eine Problemfrage? Für das FAQ vorschlagen</summary>
-<?php if ($faqSuggestionSent): ?><p class="success faq-suggest-success">Danke. Die Frage wurde zur Moderation an die Schul-IT weitergegeben.</p><?php endif; ?>
-<form method="post">
-<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
-<input type="hidden" name="action" value="suggest_faq">
-<label for="faq_question">Welche Frage sollte das FAQ beantworten?</label>
-<textarea id="faq_question" name="faq_question" maxlength="400" rows="3" required placeholder="z. B. Wie verbinde ich mein Dienst-iPad wieder mit dem WLAN?"></textarea>
-<label for="faq_category_id">Kategorie (optional)</label>
-<select id="faq_category_id" name="faq_category_id">
-<option value="">Keine Kategorie auswählen</option>
-<?php foreach ($categories as $category): ?><option value="<?= app_escape((string)$category['id']) ?>"><?= app_escape((string)$category['name']) ?></option><?php endforeach; ?>
-</select>
-<p class="muted faq-privacy-note">Der Vorschlag enthält absichtlich kein Namensfeld. Bitte keine personenbezogenen Daten in die Frage schreiben.</p>
-<button type="submit">Problemfrage vorschlagen</button>
-</form>
-</details>
 </section>
 <?php endif; ?>
 
@@ -289,8 +265,8 @@ $assistantWidgetActive = $authorized
 <div><label for="serial_number">Seriennummer</label><input id="serial_number" name="serial_number" maxlength="100"></div>
 </div>
 
-<label for="description">Problembeschreibung *</label>
-<textarea id="description" name="description" maxlength="5000" rows="6" required></textarea>
+<label for="description">Problem / Frage *</label>
+<textarea id="description" name="description" maxlength="5000" rows="6" required placeholder="Beschreibe dein Problem oder formuliere deine Frage möglichst konkret."></textarea>
 
 <label for="occurrence_details">Seit wann / wann tritt es auf?</label>
 <textarea id="occurrence_details" name="occurrence_details" maxlength="2000" rows="3"></textarea>
