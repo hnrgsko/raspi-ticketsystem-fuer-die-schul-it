@@ -304,6 +304,19 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'create_backup') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen manuelle Sicherungen starten.');
+            }
+            $result = app_system_request('create_backup', [], 240);
+            $archive = is_array($result['last_backup'] ?? null)
+                ? (string)($result['last_backup']['archive'] ?? '') : '';
+            $_SESSION['admin_notice'] = 'Verschlüsseltes Backup wurde erstellt'
+                . ($archive !== '' ? ': ' . $archive : '') . '.';
+            header('Location: /admin/?section=system#backups', true, 303);
+            exit;
+        }
+
         if ($action === 'faq_settings') {
             if (($user['role'] ?? '') !== 'system_admin') {
                 throw new RuntimeException('Nur System-Administratoren dürfen FAQ-Systemeinstellungen ändern.');
@@ -402,6 +415,15 @@ $ticketStats = ($user !== null && $db instanceof PDO && $section === 'stats') ? 
 $usageDaily = ($user !== null && $usageReady && $section === 'stats') ? app_admin_usage_daily($db, 30) : [];
 $adminUsers = ($user !== null && ($user['role'] ?? '') === 'system_admin' && $section === 'system')
     ? app_admin_user_list($db) : [];
+$backupStatus = null;
+$backupStatusError = '';
+if ($user !== null && ($user['role'] ?? '') === 'system_admin' && $section === 'system') {
+    try {
+        $backupStatus = app_system_request('backup_status', [], 10);
+    } catch (Throwable $backupCaught) {
+        $backupStatusError = $backupCaught->getMessage();
+    }
+}
 $updateStatus = null;
 if ($user !== null) {
     try {
@@ -732,6 +754,47 @@ $recommendationLabel = match ($recommendation) {
 <input type="hidden" name="action" value="check_updates">
 <button type="submit" class="secondary-button">Jetzt nach Updates suchen</button>
 </form>
+<?php endif; ?>
+</section>
+
+<section class="panel system-backup-panel" id="backups">
+<span class="label">Datensicherung</span>
+<h2>Backups</h2>
+<?php if ($backupStatusError !== ''): ?>
+<p class="error notice"><?= app_escape($backupStatusError) ?></p>
+<?php elseif (!is_array($backupStatus)): ?>
+<p class="notice">Backup-Status ist derzeit nicht verfügbar.</p>
+<?php else: ?>
+<div class="system-status-grid">
+<div><span>USB-Backup</span><strong><?= ($backupStatus['configured'] ?? false) ? 'Eingerichtet' : 'Noch nicht eingerichtet' ?></strong></div>
+<div><span>Backupmedium</span><strong><?= ($backupStatus['present'] ?? false) ? 'Angeschlossen' : (($backupStatus['configured'] ?? false) ? 'Nicht angeschlossen' : '—') ?></strong></div>
+<div><span>Verschlüsselung</span><strong><?= ($backupStatus['encryption_configured'] ?? false) ? 'Aktiv' : 'Noch nicht aktiviert' ?></strong></div>
+<?php
+$lastBackup = is_array($backupStatus['last_backup'] ?? null) ? $backupStatus['last_backup'] : null;
+?>
+<div><span>Letzte Sicherung</span><strong><?= $lastBackup !== null && !empty($lastBackup['created_at']) ? app_escape(app_local_time((string)$lastBackup['created_at'])) : 'Noch keine' ?></strong></div>
+</div>
+
+<?php if ($lastBackup !== null): ?>
+<div class="backup-last">
+<strong>Letztes verschlüsseltes Archiv</strong>
+<code><?= app_escape((string)($lastBackup['archive'] ?? '')) ?></code>
+<?php if (isset($lastBackup['size_bytes'])): ?><span><?= number_format(((int)$lastBackup['size_bytes']) / 1024 / 1024, 1, ',', '.') ?> MB</span><?php endif; ?>
+</div>
+<?php endif; ?>
+
+<?php if (($backupStatus['configured'] ?? false) && ($backupStatus['encryption_configured'] ?? false)): ?>
+<form method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="create_backup">
+<button type="submit"<?= ($backupStatus['present'] ?? false) ? '' : ' disabled' ?>>Backup jetzt erstellen</button>
+</form>
+<?php elseif (!($backupStatus['configured'] ?? false)): ?>
+<p class="notice">Das USB-Backupmedium wird einmalig während der Einrichtung registriert. Danach kann es vollständig hier überwacht und manuell gesichert werden.</p>
+<?php else: ?>
+<p class="notice">Das Backupmedium ist registriert, aber die Recovery-Code-geschützte Verschlüsselung wurde noch nicht aktiviert.</p>
+<?php endif; ?>
+<p class="muted">Automatische Sicherungen laufen zusätzlich über den täglichen Backup-Timer. Der Recovery-Code und der USB-Datenträger gehören getrennt aufbewahrt.</p>
 <?php endif; ?>
 </section>
 
