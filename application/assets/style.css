@@ -108,3 +108,27 @@ body:has(.assistant-widget){padding-bottom:6rem}
 .public-footer .admin-entry{color:#8a929a;text-decoration:none;font-size:.75rem}
 .public-footer .admin-entry:hover,.public-footer .admin-entry:focus-visible{color:#28313b;text-decoration:underline}
 @media(max-width:600px){.public-footer{padding:0 12px 24px;flex-direction:column;align-items:flex-start;gap:.35rem}}
+
+
+/* Phase 4b – moderated FAQ workflow */
+.faq-create-box,.faq-suggest-box{margin:1rem 0;border:1px solid #d7dfe5;border-radius:.75rem;padding:1rem;background:#fbfcfd}
+.faq-create-box>summary,.faq-suggest-box>summary{cursor:pointer;font-weight:750}
+.faq-create-box[open]>summary,.faq-suggest-box[open]>summary{margin-bottom:1rem}
+.faq-moderation-list,.faq-admin-entries{display:grid;gap:1rem;margin:1rem 0 2rem}
+.faq-moderation-card,.faq-entry-admin{border:1px solid #dce4e8;border-radius:.85rem;padding:1rem;background:#fff}
+.faq-moderation-meta{display:flex;gap:.75rem;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:.75rem}
+.faq-review-form{max-width:none}
+.faq-review-warning{margin:.25rem 0;color:#704000;background:#fff3ce;padding:.8rem;border-radius:.55rem}
+.faq-review-actions{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:.5rem}
+.faq-entry-admin h3{margin:.75rem 0 .4rem}
+.public-faq .faq-list{display:grid;gap:.65rem;margin:1rem 0}
+.faq-item{border:1px solid #d9e1e6;border-radius:.7rem;background:#fff;overflow:hidden}
+.faq-item>summary{cursor:pointer;padding:1rem;font-weight:750;list-style:none}
+.faq-item>summary::-webkit-details-marker{display:none}
+.faq-item>summary::after{content:"+";float:right;color:#667780;font-size:1.1rem}
+.faq-item[open]>summary::after{content:"–"}
+.faq-answer{padding:0 1rem 1rem;border-top:1px solid #edf0f2}
+.faq-answer p{margin:.75rem 0 0;white-space:normal;overflow-wrap:anywhere}
+.faq-suggest-success{padding:.8rem;border-radius:.55rem}
+.faq-privacy-note{font-size:.88rem}
+@media(max-width:600px){.faq-review-actions{display:grid}.faq-review-actions button{width:100%}.faq-moderation-meta{align-items:flex-start;flex-direction:column}}
