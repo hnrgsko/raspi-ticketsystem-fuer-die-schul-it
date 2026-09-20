@@ -386,7 +386,7 @@ Dokumentation: [Phase 5d – Backupverwaltung](docs/PHASE-5D-BACKUP-ADMIN.md)
 
 Implementiert, nächster Realtest:
 
-- zufälliger 80-Bit-Statuscode pro Ticket
+- kurzer zufälliger Statuscode mit acht gut lesbaren Zeichen pro Ticket
 - Statusabfrage mit Ticketnummer + Statuscode
 - Klartextcode nur einmal sichtbar
 - Datenbank speichert nur SHA-256
