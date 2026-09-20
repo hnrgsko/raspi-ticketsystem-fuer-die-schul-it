@@ -93,14 +93,14 @@ $assistantWidgetActive = $authorized
 <title><?= app_escape($schoolName) ?> – IT-Support</title>
 <link rel="stylesheet" href="/assets/style.css">
 </head>
-<body>
+<body<?= $authorized ? ' data-usage-csrf="' . app_escape($csrf) . '"' : '' ?>>
 <main class="shell">
 <header>
   <div>
     <div class="brand">Schul-IT Ticketsystem</div>
     <div class="school"><?= app_escape($schoolName) ?></div>
   </div>
-  <?php if ($authorized): ?><nav><a href="/">Tickets</a><?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a<?= $assistantWidgetActive ? ' data-assistant-open' : '' ?> href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?></nav><?php endif; ?>
+  <?php if ($authorized): ?><nav><a href="/">Tickets</a><?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a<?= $assistantWidgetActive ? ' data-assistant-open' : ' data-usage-event="assistant_external_open"' ?> href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?></nav><?php endif; ?>
 </header>
 
 <?php if (!$authorized): ?>
@@ -155,14 +155,15 @@ $assistantWidgetActive = $authorized
         src="<?= app_escape((string)$assistant['widget_url']) ?>"
         referrerpolicy="no-referrer"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-        loading="eager"></iframe>
+        loading="eager"
+        data-usage-focus="assistant_inline_use"></iframe>
     </div>
     <div class="assistant-inline-actions">
-      <a class="button secondary" href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer">Extern öffnen</a>
+      <a class="button secondary" data-usage-event="assistant_external_open" href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer">Extern öffnen</a>
     </div>
   </div>
   <?php else: ?>
-  <a class="button assistant-start" href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer">KI-Assistent starten</a>
+  <a class="button assistant-start" data-usage-event="assistant_external_open" href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer">KI-Assistent starten</a>
   <?php endif; ?>
   <p class="assistant-disclosure"><strong>Hinweis:</strong> KI kann Fehler machen. Prüfe Antworten vor der Verwendung und gib keine Passwörter oder unnötigen personenbezogenen Daten ein.</p>
 </section>
@@ -286,6 +287,8 @@ $assistantWidgetActive = $authorized
   <span>Schul-IT Ticketsystem</span>
   <a class="admin-entry" href="/admin/">Administration</a>
 </footer>
+
+<?php if ($authorized && ($assistant['enabled'] ?? false)): ?><script src="/assets/usage.js" defer></script><?php endif; ?>
 
 <?php if ($assistantWidgetActive): ?>
 <aside class="assistant-widget" aria-label="KI-Assistent">
