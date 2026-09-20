@@ -214,7 +214,7 @@ $assistantWidgetActive = $authorized
 <?php else: ?>
 <div class="faq-list">
 <?php foreach ($publicFaq as $faq): ?>
-<details class="faq-item">
+<details class="faq-item" data-usage-open="faq_public_open">
 <summary><span class="faq-question-text"><?= app_escape((string)$faq['question']) ?></span></summary>
 <div class="faq-answer">
 <?php if (!empty($faq['category_name'])): ?><span class="label"><?= app_escape((string)$faq['category_name']) ?></span><?php endif; ?>
@@ -249,7 +249,7 @@ $assistantWidgetActive = $authorized
     : 'Beschreibe dein Anliegen. Hilfekarten und Wissenssuche werden im nächsten Entwicklungsschritt vorgeschaltet.' ?></p>
 <div class="notice"><strong>Datensparsam ausfüllen:</strong> Keine Passwörter, Zugangsdaten oder unnötigen personenbezogenen Daten von Schülerinnen und Schülern eintragen.</div>
 
-<form method="post" action="/?type=<?= app_escape($type) ?>">
+<form method="post" action="/?type=<?= app_escape($type) ?>"<?= $type === 'support' ? ' data-support-ticket-form' : '' ?>>
 <input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
 <input type="hidden" name="action" value="create_ticket">
 <input type="hidden" name="type" value="<?= app_escape($type) ?>">
@@ -287,6 +287,16 @@ $assistantWidgetActive = $authorized
 <label for="description">Problem / Frage *</label>
 <textarea id="description" name="description" maxlength="5000" rows="6" required placeholder="Beschreibe dein Problem oder formuliere deine Frage möglichst konkret."></textarea>
 
+<?php if ($type === 'support' && $faqReady): ?>
+<section id="faq-ticket-suggestions" class="faq-ticket-suggestions" hidden aria-live="polite">
+  <span class="label">Vielleicht schon gelöst</span>
+  <h2>Passt eine dieser Lösungen?</h2>
+  <p class="muted">Die Vorschläge werden nur lokal aus den veröffentlichten FAQ dieser Schule ermittelt.</p>
+  <div data-faq-suggestion-list class="faq-ticket-suggestion-list"></div>
+  <p class="success faq-solved-message" data-faq-solved hidden><strong>Super.</strong> Wenn das Problem damit gelöst ist, musst du dieses Ticket nicht absenden.</p>
+</section>
+<?php endif; ?>
+
 <label for="occurrence_details">Seit wann / wann tritt es auf?</label>
 <textarea id="occurrence_details" name="occurrence_details" maxlength="2000" rows="3"></textarea>
 
@@ -306,7 +316,8 @@ $assistantWidgetActive = $authorized
   <a class="admin-entry" href="/admin/">Administration</a>
 </footer>
 
-<?php if ($authorized && ($assistant['enabled'] ?? false)): ?><script src="/assets/usage.js" defer></script><?php endif; ?>
+<?php if ($authorized): ?><script src="/assets/usage.js" defer></script><?php endif; ?>
+<?php if ($authorized && $ready && $type === 'support' && $faqReady): ?><script src="/assets/faq-suggest.js" defer></script><?php endif; ?>
 
 <?php if ($assistantWidgetActive): ?>
 <aside class="assistant-widget" aria-label="KI-Assistent">
