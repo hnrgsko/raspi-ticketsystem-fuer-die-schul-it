@@ -53,3 +53,9 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile system/*.py
+
+      - name: Repository policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/repo_policy.py
