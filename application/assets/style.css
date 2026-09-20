@@ -445,3 +445,17 @@ button:disabled,.button[aria-disabled="true"]{cursor:not-allowed;opacity:.5}
 .ticket-status-code strong,.one-time-code strong{font-size:1.35rem;letter-spacing:.04em;overflow-wrap:anywhere;word-break:break-word}
 .one-time-code small{color:#667780}
 .ticket-access-admin form{margin-top:.8rem}
+
+
+/* Phase 5f – FAQ direkt während der Ticketerfassung */
+.faq-ticket-suggestions{margin:1rem 0;padding:1rem;border:1px solid #cfe1d6;border-left:4px solid #5f9274;border-radius:.8rem;background:#f4faf6}
+.faq-ticket-suggestions h2{margin:.45rem 0 .25rem}
+.faq-ticket-suggestion-list{display:grid;gap:.65rem;margin-top:.8rem}
+.faq-ticket-suggestion{border:1px solid #cfe1d6;border-radius:.7rem;background:#fff;overflow:hidden}
+.faq-ticket-suggestion>summary{cursor:pointer;padding:.85rem 1rem;font-weight:780;color:#264d36}
+.faq-ticket-suggestion[open]>summary{background:#eef7f1}
+.faq-ticket-suggestion-answer{padding:1rem;border-top:1px solid #e0ebe4}
+.faq-ticket-suggestion-answer p{white-space:pre-wrap;overflow-wrap:anywhere}
+.faq-helpful-button{margin-top:.4rem}
+.faq-solved-message{margin:1rem 0 0}
+@media(max-width:600px){.faq-ticket-suggestions{padding:.85rem}.faq-helpful-button{width:100%}}
