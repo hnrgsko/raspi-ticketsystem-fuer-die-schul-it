@@ -809,6 +809,53 @@ def _normalize_restored_app_config(path: pathlib.Path) -> None:
         os.chown(path, 0, grp.getgrnam("www-data").gr_gid)
 
 
+def _www_data_ids() -> tuple[int, int]:
+    user = __import__("pwd").getpwnam("www-data")
+    group = grp.getgrnam("www-data")
+    return user.pw_uid, group.gr_gid
+
+
+def _restore_runtime_permissions() -> None:
+    uid, gid = _www_data_ids()
+
+    # Runtime session and upload data must be writable only by the web process.
+    for directory, mode in (
+        (pathlib.Path("/var/lib/schulit/sessions"), 0o700),
+        (pathlib.Path("/var/lib/schulit/admin-sessions"), 0o700),
+        (UPLOADS_DIR, 0o750),
+    ):
+        directory.mkdir(parents=True, exist_ok=True)
+        os.chown(directory, uid, gid)
+        os.chmod(directory, mode)
+
+    if UPLOADS_DIR.is_dir():
+        for root, dirs, files in os.walk(UPLOADS_DIR):
+            root_path = pathlib.Path(root)
+            os.chown(root_path, uid, gid)
+            os.chmod(root_path, 0o750)
+            for name in dirs:
+                path = root_path / name
+                if path.is_symlink():
+                    raise BackupError("Upload-Verzeichnis enthält einen symbolischen Link.")
+                os.chown(path, uid, gid)
+                os.chmod(path, 0o750)
+            for name in files:
+                path = root_path / name
+                if path.is_symlink():
+                    raise BackupError("Upload-Verzeichnis enthält einen symbolischen Link.")
+                os.chown(path, uid, gid)
+                os.chmod(path, 0o640)
+
+
+def _ensure_access_token() -> None:
+    token_path = pathlib.Path("/etc/schulit/access-token")
+    if not token_path.is_file() or token_path.stat().st_size == 0:
+        token_path.parent.mkdir(parents=True, exist_ok=True)
+        token_path.write_text(secrets.token_hex(32) + "\n", encoding="utf-8")
+    os.chown(token_path, 0, grp.getgrnam("www-data").gr_gid)
+    os.chmod(token_path, 0o640)
+
+
 def _install_restored_file(source: pathlib.Path, destination: pathlib.Path, mode: int, group: str | None = None) -> None:
     if not source.is_file():
         return
@@ -818,7 +865,6 @@ def _install_restored_file(source: pathlib.Path, destination: pathlib.Path, mode
     os.chmod(tmp, mode)
     gid = 0
     if group == "www-data":
-        import grp
         gid = grp.getgrnam("www-data").gr_gid
     os.chown(tmp, 0, gid)
     os.replace(tmp, destination)
@@ -916,7 +962,11 @@ def restore_backup(selection: dict[str, Any], recovery_code: str) -> dict[str, A
                 if UPLOADS_DIR.exists():
                     shutil.rmtree(UPLOADS_DIR)
                 shutil.copytree(uploads, UPLOADS_DIR)
-                os.chown(UPLOADS_DIR, 0, 0)
+
+            # Backups created before Phase 4 do not contain access-token.
+            # In that case keep/generate a fresh local token instead of failing restore.
+            _ensure_access_token()
+            _restore_runtime_permissions()
 
     try:
         subprocess.run(
@@ -1028,6 +1078,7 @@ def verify_restore_candidate(manifest_name: str, recovery_code: str) -> dict[str
                 raise BackupError("Installationsstatus im Backup passt nicht zur Schulkennung.")
 
             uploads_present = (payload / "uploads").is_dir()
+            access_token_present = (payload / "etc-schulit" / "access-token").is_file()
 
     return {
         "ok": True,
@@ -1045,5 +1096,7 @@ def verify_restore_candidate(manifest_name: str, recovery_code: str) -> dict[str
         "decryption": True,
         "safe_extract": True,
         "uploads_present": uploads_present,
+        "access_token_present": access_token_present,
+        "access_token_optional": True,
         "live_system_modified": False,
     }
