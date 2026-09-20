@@ -262,3 +262,21 @@ Implementiert, nächster Realtest:
 - experimentelle schwebende Sprechblase für HTTPS-Assistenten; bisher mit AIS.chat-Dialogpartnern getestet
 
 Dokumentation: [Phase 4a.1 – UI-Parität und optionaler KI-Assistent](docs/PHASE-4A1-UI-PARITY.md)
+
+
+### Phase 4b – Automatisiertes FAQ mit Moderation
+
+Implementiert, nächster Realtest:
+
+- automatische FAQ-Entwürfe beim erstmaligen Status **Erledigt**
+- regelbasierte Problemfrage aus dem Ticket
+- letzte interne Notiz optional als zu prüfender Antwortentwurf
+- keine automatische Veröffentlichung
+- Moderationsbereich **Admin → FAQ**
+- direkte FAQ-Fragen durch Admins
+- anonyme Problemfragen-Vorschläge aus dem Kollegium
+- veröffentlichte FAQ auf der Kollegiumsseite
+- FAQ ausblenden und wieder veröffentlichen
+- Automatik durch System-Admins abschaltbar
+
+Dokumentation: [Phase 4b – Automatisiertes FAQ mit Moderation](docs/PHASE-4B-AUTOMATED-FAQ.md)
