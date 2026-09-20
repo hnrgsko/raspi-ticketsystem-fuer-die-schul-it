@@ -308,6 +308,7 @@ function app_ticket_create(PDO $db, array $input, string $type): string
         $queue = $db->prepare('UPDATE tickets SET queue_position=:position WHERE id=:id');
         $queue->execute(['position' => $id, 'id' => $id]);
         $db->commit();
+        app_usage_record($db, 'ticket_created');
         return $id;
     } catch (Throwable $error) {
         if ($db->inTransaction()) $db->rollBack();
@@ -889,4 +890,178 @@ function app_faq_admin_set_entry_status(PDO $db, string $entryId, string $adminI
         $exists->execute(['id'=>$entryId]);
         if ($exists->fetchColumn() === false) throw new InvalidArgumentException('FAQ-Eintrag nicht gefunden.');
     }
+}
+
+
+function app_usage_tables_ready(PDO $db): bool
+{
+    try {
+        $db->query('SELECT stat_date FROM usage_daily LIMIT 0');
+        return true;
+    } catch (Throwable) {
+        return false;
+    }
+}
+
+function app_usage_metrics(): array
+{
+    return [
+        'assistant_inline_use',
+        'assistant_bubble_open',
+        'assistant_external_open',
+        'ticket_created',
+    ];
+}
+
+function app_usage_record(PDO $db, string $metric): void
+{
+    if (!in_array($metric, app_usage_metrics(), true) || !app_usage_tables_ready($db)) return;
+
+    $today = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
+    $sessionKey = 'usage_' . $today . '_' . $metric;
+    $isNewSession = session_status() === PHP_SESSION_ACTIVE
+        && (($_SESSION['usage_counted'][$sessionKey] ?? false) !== true);
+
+    $q = $db->prepare(
+        'INSERT INTO usage_daily(stat_date,metric,event_count,session_count,updated_at)
+         VALUES(:day,:metric,1,:sessions,UTC_TIMESTAMP(6))
+         ON DUPLICATE KEY UPDATE
+           event_count=event_count+1,
+           session_count=session_count+VALUES(session_count),
+           updated_at=UTC_TIMESTAMP(6)'
+    );
+    $q->execute([
+        'day'=>$today,
+        'metric'=>$metric,
+        'sessions'=>$isNewSession ? 1 : 0,
+    ]);
+
+    if ($isNewSession) {
+        if (!isset($_SESSION['usage_counted']) || !is_array($_SESSION['usage_counted'])) {
+            $_SESSION['usage_counted'] = [];
+        }
+        $_SESSION['usage_counted'][$sessionKey] = true;
+    }
+}
+
+function app_admin_usage_summary(PDO $db): array
+{
+    $zone = new DateTimeZone('Europe/Berlin');
+    $today = new DateTimeImmutable('today', $zone);
+    $periods = [
+        'today' => $today,
+        '7d' => $today->modify('-6 days'),
+        '30d' => $today->modify('-29 days'),
+    ];
+
+    $result = [];
+    foreach (app_usage_metrics() as $metric) {
+        $result[$metric] = [
+            'today'=>['events'=>0,'sessions'=>0],
+            '7d'=>['events'=>0,'sessions'=>0],
+            '30d'=>['events'=>0,'sessions'=>0],
+            'all'=>['events'=>0,'sessions'=>0],
+        ];
+    }
+
+    $all = $db->query(
+        'SELECT metric,SUM(event_count) AS events,SUM(session_count) AS sessions
+         FROM usage_daily GROUP BY metric'
+    )->fetchAll();
+    foreach ($all as $row) {
+        $metric = (string)$row['metric'];
+        if (!isset($result[$metric])) continue;
+        $result[$metric]['all'] = [
+            'events'=>(int)$row['events'],
+            'sessions'=>(int)$row['sessions'],
+        ];
+    }
+
+    foreach ($periods as $key=>$start) {
+        $q = $db->prepare(
+            'SELECT metric,SUM(event_count) AS events,SUM(session_count) AS sessions
+             FROM usage_daily WHERE stat_date>=:start GROUP BY metric'
+        );
+        $q->execute(['start'=>$start->format('Y-m-d')]);
+        foreach ($q->fetchAll() as $row) {
+            $metric = (string)$row['metric'];
+            if (!isset($result[$metric])) continue;
+            $result[$metric][$key] = [
+                'events'=>(int)$row['events'],
+                'sessions'=>(int)$row['sessions'],
+            ];
+        }
+    }
+
+    return $result;
+}
+
+function app_admin_ticket_statistics(PDO $db): array
+{
+    $zone = new DateTimeZone('Europe/Berlin');
+    $utc = new DateTimeZone('UTC');
+    $today = new DateTimeImmutable('today', $zone);
+
+    $countSince = static function (PDO $db, DateTimeImmutable $start) use ($utc): int {
+        $q = $db->prepare('SELECT COUNT(*) FROM tickets WHERE created_at>=:start');
+        $q->execute(['start'=>$start->setTimezone($utc)->format('Y-m-d H:i:s')]);
+        return (int)$q->fetchColumn();
+    };
+
+    return [
+        'today'=>$countSince($db, $today),
+        '7d'=>$countSince($db, $today->modify('-6 days')),
+        '30d'=>$countSince($db, $today->modify('-29 days')),
+        'all'=>(int)$db->query('SELECT COUNT(*) FROM tickets')->fetchColumn(),
+        'open'=>(int)$db->query("SELECT COUNT(*) FROM tickets WHERE archived_at IS NULL AND status<>'done'")->fetchColumn(),
+        'done'=>(int)$db->query("SELECT COUNT(*) FROM tickets WHERE status='done'")->fetchColumn(),
+    ];
+}
+
+function app_admin_usage_daily(PDO $db, int $days = 30): array
+{
+    $days = max(1, min(90, $days));
+    $zone = new DateTimeZone('Europe/Berlin');
+    $utc = new DateTimeZone('UTC');
+    $today = new DateTimeImmutable('today', $zone);
+    $start = $today->modify('-' . ($days - 1) . ' days');
+
+    $rows = [];
+    for ($i=0; $i<$days; $i++) {
+        $day = $start->modify('+' . $i . ' days')->format('Y-m-d');
+        $rows[$day] = [
+            'date'=>$day,
+            'ticket_created'=>0,
+            'assistant_inline_use'=>0,
+            'assistant_bubble_open'=>0,
+            'assistant_external_open'=>0,
+        ];
+    }
+
+    $usage = $db->prepare(
+        'SELECT stat_date,metric,event_count FROM usage_daily
+         WHERE stat_date>=:start ORDER BY stat_date'
+    );
+    $usage->execute(['start'=>$start->format('Y-m-d')]);
+    foreach ($usage->fetchAll() as $row) {
+        $day = (string)$row['stat_date'];
+        $metric = (string)$row['metric'];
+        if (isset($rows[$day][$metric])) {
+            $rows[$day][$metric] = (int)$row['event_count'];
+        }
+    }
+
+    // Ticket counts are derived from the ticket table so pre-statistics tickets are included.
+    $tickets = $db->prepare('SELECT created_at FROM tickets WHERE created_at>=:start');
+    $tickets->execute(['start'=>$start->setTimezone($utc)->format('Y-m-d H:i:s')]);
+    foreach ($tickets->fetchAll(PDO::FETCH_COLUMN) as $createdAt) {
+        try {
+            $day = (new DateTimeImmutable((string)$createdAt, $utc))->setTimezone($zone)->format('Y-m-d');
+            if (isset($rows[$day])) $rows[$day]['ticket_created']++;
+        } catch (Throwable) {
+            continue;
+        }
+    }
+
+    return array_values($rows);
 }
