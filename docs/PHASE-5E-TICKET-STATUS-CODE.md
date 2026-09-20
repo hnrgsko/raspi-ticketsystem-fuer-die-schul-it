@@ -6,11 +6,11 @@ Die bisherige Kombination aus Ticketnummer und Schulkennung war für einen spät
 
 ## Neue Lösung
 
-Jedes neue Ticket erhält zusätzlich einen zufälligen Statuscode.
+Jedes neue Ticket erhält zusätzlich einen kurzen, zufälligen Statuscode.
 
 Beispiel:
 
-`ABCD-EF12-3456-7890-ABCD`
+`7K4M-P9Q2`
 
 Für die Statusabfrage werden benötigt:
 
@@ -30,7 +30,7 @@ Gespeichert wird ausschließlich:
 
 `SHA-256(Statuscode)`
 
-Der Statuscode besitzt 80 Bit Zufallsentropie.
+Der neue Statuscode besteht aus acht gut unterscheidbaren Zeichen und besitzt knapp 40 Bit Zufallsentropie. Zeichen wie `0/O` und `1/I/L` werden bewusst nicht verwendet.
 
 ## Verlorener Statuscode
 
