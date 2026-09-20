@@ -116,6 +116,14 @@ check "curl geladen" php -r 'exit(extension_loaded("curl") ? 0 : 1);'
 check "Setup-Seite erreichbar" curl --fail --silent --show-error http://127.0.0.1:8080/
 check "Ticketsystem auf Port 8081 erreichbar" curl --fail --silent --show-error http://127.0.0.1:8081/
 check "Ticket-Admin erreichbar" curl --fail --silent --show-error http://127.0.0.1:8081/admin/
+
+if [[ -f /etc/schulit/tunnel.json ]]; then
+  check_file_meta "Tunnel-Konfiguration geschützt" /etc/schulit/tunnel.json root root 600
+  check_file_meta "Tunnel-Token geschützt" /etc/schulit/cloudflared-token.env root root 600
+  check_file_meta "cloudflared geschützt" /usr/local/bin/cloudflared root root 755
+  check_file_meta "Tunnel-Systemdienst geschützt" /etc/systemd/system/schulit-tunnel.service root root 644
+  check "Cloudflare Tunnel-Dienst läuft" systemctl is-active schulit-tunnel.service
+fi
 if [[ -f /var/lib/schulit/setup/installation.json ]]; then
   check_file_meta "Datenbankkonfiguration geschützt" /etc/schulit/app.php root www-data 640
   check_file_meta "Installationsstatus geschützt" /var/lib/schulit/setup/installation.json root www-data 640
