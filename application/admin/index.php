@@ -224,6 +224,14 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'faq_merge') {
+            $proposalId = (string)($_POST['proposal_id'] ?? '');
+            app_faq_admin_merge($db, $proposalId, (string)$user['id'], $_POST);
+            $_SESSION['admin_notice'] = 'Bestehende FAQ wurde aktualisiert und mit dem Ticket verknüpft.';
+            header('Location: /admin/?section=faq', true, 303);
+            exit;
+        }
+
         if ($action === 'faq_reject') {
             app_faq_admin_reject(
                 $db,
@@ -446,11 +454,39 @@ foreach ($statLabels as $metric=>$meta):
 <?php else: ?>
 <div class="faq-moderation-list">
 <?php foreach ($faqPending as $proposal): ?>
-<article class="faq-moderation-card" id="faq-proposal-<?= app_escape((string)$proposal['id']) ?>">
+<?php
+$recommendation = (string)($proposal['recommendation'] ?? 'new');
+$recommendationLabel = match ($recommendation) {
+    'merge' => 'Bestehende FAQ wahrscheinlich',
+    'review' => 'Bitte kurz prüfen',
+    default => 'Neue FAQ sinnvoll',
+};
+?>
+<article class="faq-moderation-card faq-recommendation-<?= app_escape($recommendation) ?>" id="faq-proposal-<?= app_escape((string)$proposal['id']) ?>">
 <div class="faq-moderation-meta">
+<div class="faq-meta-left">
 <span class="label"><?= $proposal['source_type']==='ticket' ? 'Aus Ticket' : 'Admin-Vorschlag' ?></span>
+<span class="faq-autopilot-badge faq-autopilot-<?= app_escape($recommendation) ?>"><?= app_escape($recommendationLabel) ?></span>
+</div>
 <?php if ($proposal['source_ticket_id'] !== null): ?><a href="/admin/?ticket=<?= rawurlencode((string)$proposal['source_ticket_id']) ?>"><?= app_escape(app_ticket_number((string)$proposal['source_ticket_id'])) ?> öffnen</a><?php endif; ?>
 </div>
+
+<?php if (!empty($proposal['recommendation_reason'])): ?>
+<p class="faq-autopilot-reason"><?= app_escape((string)$proposal['recommendation_reason']) ?></p>
+<?php endif; ?>
+
+<?php if (!empty($proposal['suggested_entry_id']) && !empty($proposal['suggested_question'])): ?>
+<aside class="faq-duplicate-hint">
+<div class="faq-duplicate-heading">
+<strong>Ähnliche bestehende FAQ</strong>
+<?php if ($proposal['similarity_score'] !== null): ?><span><?= number_format((float)$proposal['similarity_score'], 0, ',', '.') ?> % Ähnlichkeit</span><?php endif; ?>
+</div>
+<h3><?= app_escape((string)$proposal['suggested_question']) ?></h3>
+<p class="preserve"><?= nl2br(app_escape((string)$proposal['suggested_answer'])) ?></p>
+<small>Bisher mit <?= (int)($proposal['suggested_ticket_count'] ?? 0) ?> Ticket(s) verknüpft.</small>
+</aside>
+<?php endif; ?>
+
 <form class="admin-form faq-review-form" method="post">
 <input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
 <input type="hidden" name="proposal_id" value="<?= app_escape((string)$proposal['id']) ?>">
@@ -462,8 +498,9 @@ foreach ($statLabels as $metric=>$meta):
 <label for="faq-category-<?= app_escape((string)$proposal['id']) ?>">Kategorie</label>
 <select id="faq-category-<?= app_escape((string)$proposal['id']) ?>" name="faq_category_id"><option value="">Keine feste Kategorie</option><?php foreach ($categories as $category): ?><option value="<?= app_escape((string)$category['id']) ?>"<?= (string)($proposal['category_id'] ?? '')===(string)$category['id'] ? ' selected' : '' ?>><?= app_escape((string)$category['name']) ?></option><?php endforeach; ?></select>
 <div class="faq-review-actions">
-<button type="submit" name="action" value="faq_publish">Prüfen & veröffentlichen</button>
-<button type="submit" name="action" value="faq_reject" class="secondary-button" formnovalidate>Verwerfen</button>
+<?php if (!empty($proposal['suggested_entry_id'])): ?><button type="submit" name="action" value="faq_merge" class="faq-merge-button">Bestehende FAQ aktualisieren</button><?php endif; ?>
+<button type="submit" name="action" value="faq_publish"><?= !empty($proposal['suggested_entry_id']) ? 'Trotzdem neue FAQ veröffentlichen' : 'Prüfen & veröffentlichen' ?></button>
+<button type="submit" name="action" value="faq_reject" class="secondary-button" formnovalidate>Kein FAQ-Fall</button>
 </div>
 </form>
 </article>
@@ -476,7 +513,7 @@ foreach ($statLabels as $metric=>$meta):
 <div class="faq-admin-entries">
 <?php foreach ($faqEntries as $entry): ?>
 <article class="faq-entry-admin">
-<div><span class="status <?= $entry['status']==='published' ? 'status-done' : 'status-archived' ?>"><?= $entry['status']==='published' ? 'Veröffentlicht' : 'Inaktiv' ?></span><?php if (!empty($entry['category_name'])): ?> <span class="label"><?= app_escape((string)$entry['category_name']) ?></span><?php endif; ?></div>
+<div class="faq-entry-meta"><span class="status <?= $entry['status']==='published' ? 'status-done' : 'status-archived' ?>"><?= $entry['status']==='published' ? 'Veröffentlicht' : 'Inaktiv' ?></span><?php if (!empty($entry['category_name'])): ?> <span class="label"><?= app_escape((string)$entry['category_name']) ?></span><?php endif; ?><span class="faq-ticket-count"><?= (int)($entry['ticket_count'] ?? 0) ?> Ticket(s)</span></div>
 <h3><?= app_escape((string)$entry['question']) ?></h3>
 <p class="preserve"><?= nl2br(app_escape((string)$entry['answer'])) ?></p>
 <form method="post">
