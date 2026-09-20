@@ -8,6 +8,7 @@ install -o root -g root -m 0755 "${SCHULIT_SOURCE_ROOT}/system/setupd.py" /usr/l
 install -o root -g root -m 0644 "${SCHULIT_SOURCE_ROOT}/system/backup_core.py" /usr/local/lib/schulit/backup_core.py
 install -o root -g root -m 0644 "${SCHULIT_SOURCE_ROOT}/system/update_core.py" /usr/local/lib/schulit/update_core.py
 install -o root -g root -m 0755 "${SCHULIT_SOURCE_ROOT}/system/backup_client.py" /usr/local/lib/schulit/backup_client.py
+install -o root -g root -m 0755 "${SCHULIT_SOURCE_ROOT}/system/diagnostics.sh" /usr/local/sbin/schulit-diagnostics
 
 install -d -m 0755 /opt/schulit/setup-migrations
 rsync -a --delete "${SCHULIT_SOURCE_ROOT}/database/migrations/" /opt/schulit/setup-migrations/
