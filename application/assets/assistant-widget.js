@@ -36,7 +36,11 @@
     };
 
     widget.addEventListener('toggle', () => {
-        if (widget.open) loadFrame();
+        if (!widget.open) return;
+        loadFrame();
+        document.dispatchEvent(new CustomEvent('schulit-usage', {
+            detail: { metric: 'assistant_bubble_open' }
+        }));
     });
 
     document.querySelectorAll('[data-assistant-open]').forEach((link) => {
