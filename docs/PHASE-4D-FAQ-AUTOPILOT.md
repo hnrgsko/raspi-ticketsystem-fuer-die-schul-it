@@ -137,10 +137,14 @@ Am 20.09.2026 auf echter Hardware bestätigt:
 - FAQ-Entwurf wurde automatisch erzeugt
 - Autopilot bewertete den Fall als **Neue FAQ sinnvoll**
 
+Zusätzlich auf echter Hardware bestätigt:
+
+- FAQ-Entwurf erfolgreich veröffentlicht
+- veröffentlichte FAQ erscheint auf der Kollegiumsseite
+- Frage ist aufklappbar und Antwort wird korrekt dargestellt
+
 Noch offen in diesem Testblock:
 
-- Veröffentlichung des Entwurfs
-- Anzeige auf der Kollegiumsseite
 - zweites ähnliches Ticket
 - Erkennung **Bestehende FAQ wahrscheinlich**
 - Zusammenführen / Aktualisieren einer bestehenden FAQ
