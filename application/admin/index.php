@@ -188,6 +188,48 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'configure_tunnel') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen den öffentlichen Zugang ändern.');
+            }
+            app_system_request('configure_tunnel', [
+                'hostname'=>(string)($_POST['tunnel_hostname'] ?? ''),
+                'token'=>(string)($_POST['tunnel_token'] ?? ''),
+            ], 210);
+            $_SESSION['admin_notice'] = 'Cloudflare Tunnel wurde eingerichtet und gestartet.';
+            header('Location: /admin/?section=system#public-access', true, 303);
+            exit;
+        }
+
+        if ($action === 'test_tunnel') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen den öffentlichen Zugang testen.');
+            }
+            $result = app_system_request('test_tunnel', [], 30);
+            if (($result['reachable'] ?? false) === true) {
+                $_SESSION['admin_notice'] = 'Öffentlicher Zugang ist erreichbar'
+                    . (!empty($result['http_status']) ? ' (HTTP ' . $result['http_status'] . ')' : '') . '.';
+            } else {
+                $_SESSION['admin_notice'] = 'Der Tunnel-Dienst läuft, aber der öffentliche Hostname ist noch nicht erreichbar. '
+                    . 'Bitte DNS/Published Application bei Cloudflare prüfen.';
+            }
+            header('Location: /admin/?section=system#public-access', true, 303);
+            exit;
+        }
+
+        if ($action === 'disable_tunnel') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen den öffentlichen Zugang entfernen.');
+            }
+            if ((string)($_POST['confirm_tunnel_remove'] ?? '') !== '1') {
+                throw new RuntimeException('Zum Entfernen des Tunnels muss die Bestätigung gesetzt werden.');
+            }
+            app_system_request('disable_tunnel', [], 45);
+            $_SESSION['admin_notice'] = 'Cloudflare Tunnel wurde getrennt; lokale Ticketseite bleibt erhalten.';
+            header('Location: /admin/?section=system#public-access', true, 303);
+            exit;
+        }
+
         if ($action === 'faq_settings') {
             if (($user['role'] ?? '') !== 'system_admin') {
                 throw new RuntimeException('Nur System-Administratoren dürfen FAQ-Systemeinstellungen ändern.');
@@ -284,6 +326,15 @@ $usageReady = $db instanceof PDO && app_usage_tables_ready($db);
 $usageSummary = ($user !== null && $usageReady && $section === 'stats') ? app_admin_usage_summary($db) : [];
 $ticketStats = ($user !== null && $db instanceof PDO && $section === 'stats') ? app_admin_ticket_statistics($db) : [];
 $usageDaily = ($user !== null && $usageReady && $section === 'stats') ? app_admin_usage_daily($db, 30) : [];
+$tunnelStatus = null;
+$tunnelStatusError = '';
+if ($user !== null && ($user['role'] ?? '') === 'system_admin' && $section === 'system') {
+    try {
+        $tunnelStatus = app_system_request('tunnel_status', [], 10);
+    } catch (Throwable $tunnelCaught) {
+        $tunnelStatusError = $tunnelCaught->getMessage();
+    }
+}
 $ticketId = is_string($_GET['ticket'] ?? null) ? $_GET['ticket'] : '';
 $detail = ($user !== null && $db instanceof PDO && $ticketId !== '' && $section === '')
     ? app_admin_ticket($db, $ticketId) : null;
@@ -551,6 +602,81 @@ $recommendationLabel = match ($recommendation) {
 <p class="muted">Die Funktion ist schulindividuell. Der Raspberry-Pi-Installer bringt keine feste AIS.chat-Instanz mit.</p>
 <button type="submit">Assistenten-Einstellungen speichern</button>
 </form>
+</section>
+
+<section class="panel system-public-access" id="public-access">
+<span class="label">Öffentlicher Zugang</span>
+<h2>Domain / Cloudflare Tunnel</h2>
+<p>Damit die Kollegiumsseite auch außerhalb des lokalen Netzes erreichbar ist, kann ein Cloudflare Tunnel verwendet werden. Am Router ist dafür keine Portfreigabe nötig.</p>
+
+<?php if ($tunnelStatusError !== ''): ?>
+<p class="error notice"><?= app_escape($tunnelStatusError) ?></p>
+<?php elseif (is_array($tunnelStatus)): ?>
+<div class="system-status-grid">
+<div><span>Konfiguration</span><strong><?= ($tunnelStatus['configured'] ?? false) ? 'Eingerichtet' : 'Noch nicht eingerichtet' ?></strong></div>
+<div><span>Tunnel-Dienst</span><strong><?= ($tunnelStatus['service_active'] ?? false) ? 'Aktiv' : 'Nicht aktiv' ?></strong></div>
+<div><span>cloudflared</span><strong><?= ($tunnelStatus['cloudflared_installed'] ?? false) ? 'Installiert' : 'Wird bei Aktivierung installiert' ?></strong></div>
+<?php if (!empty($tunnelStatus['hostname'])): ?><div><span>Hostname</span><strong><?= app_escape((string)$tunnelStatus['hostname']) ?></strong></div><?php endif; ?>
+</div>
+
+<?php if (($tunnelStatus['configured'] ?? false) === true && !empty($tunnelStatus['hostname'])): ?>
+<?php $staffPublicUrl = app_public_access_url((string)$tunnelStatus['hostname']); ?>
+<div class="public-access-ready">
+<strong>Öffentlicher Kollegiumslink</strong>
+<?php if ($staffPublicUrl !== ''): ?><code><?= app_escape($staffPublicUrl) ?></code><?php endif; ?>
+<p class="muted">Dieser Link enthält das Zugangstoken und sollte nur innerhalb der Schule bzw. im geschützten Schulportal weitergegeben werden.</p>
+<div class="system-inline-actions">
+<form method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="test_tunnel">
+<button type="submit">Verbindung testen</button>
+</form>
+<a class="button secondary" href="<?= app_escape((string)$tunnelStatus['public_url']) ?>" target="_blank" rel="noopener noreferrer">Öffentliche Seite öffnen</a>
+</div>
+</div>
+<?php endif; ?>
+<?php endif; ?>
+
+<details class="system-guide"<?= !is_array($tunnelStatus) || !($tunnelStatus['configured'] ?? false) ? ' open' : '' ?>>
+<summary>Tunnel einrichten oder ändern</summary>
+<div class="system-guide-body">
+<ol>
+<li>Die gewünschte Domain muss bei Cloudflare verwaltet werden.</li>
+<li>Im Cloudflare-Dashboard einen <strong>Tunnel</strong> anlegen.</li>
+<li>Als öffentliche Anwendung den gewünschten Hostnamen eintragen, z. B. <code>support.schule.de</code>.</li>
+<li>Als Ziel/Service <code>http://localhost:8081</code> eintragen.</li>
+<li>Den angezeigten Tunnel-Token oder den kompletten <code>cloudflared service install …</code>-Befehl hier einfügen.</li>
+</ol>
+
+<form class="admin-form" method="post" autocomplete="off">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="configure_tunnel">
+<label for="tunnel_hostname">Öffentlicher Hostname</label>
+<input id="tunnel_hostname" name="tunnel_hostname" maxlength="253" required
+       value="<?= app_escape((string)($tunnelStatus['hostname'] ?? '')) ?>"
+       placeholder="support.schule.de" inputmode="url">
+<label for="tunnel_token">Cloudflare Tunnel-Token oder Installationsbefehl</label>
+<textarea id="tunnel_token" name="tunnel_token" maxlength="8192" rows="4" required
+          autocomplete="new-password" spellcheck="false"
+          placeholder="eyJ… oder: sudo cloudflared service install eyJ…"></textarea>
+<p class="muted">Der Token ist ein Zugangsschlüssel. Er wird root-only auf dem Raspberry Pi gespeichert und danach hier nicht mehr angezeigt.</p>
+<button type="submit"><?= ($tunnelStatus['configured'] ?? false) ? 'Tunnel neu verbinden' : 'Tunnel installieren & aktivieren' ?></button>
+</form>
+</div>
+</details>
+
+<?php if (is_array($tunnelStatus) && ($tunnelStatus['configured'] ?? false)): ?>
+<details class="danger-zone">
+<summary>Öffentlichen Zugang entfernen</summary>
+<form class="admin-form" method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="disable_tunnel">
+<label class="check-row"><input type="checkbox" name="confirm_tunnel_remove" value="1" required> Tunnel auf diesem Raspberry Pi trennen und gespeicherten Token löschen</label>
+<p class="muted">Tickets, FAQ und lokale Zugriffe bleiben unverändert. Die Cloudflare-Konfiguration im Cloudflare-Konto wird dadurch nicht gelöscht.</p>
+<button type="submit" class="danger-button">Tunnel trennen</button>
+</form>
+</details>
+<?php endif; ?>
 </section>
 
 <?php elseif ($detail !== null): ?>
