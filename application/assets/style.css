@@ -261,3 +261,95 @@ html{scroll-behavior:smooth;scroll-padding-top:1rem}
   .faq-item>summary::after{width:1.5rem;height:1.5rem}
   .faq-answer{padding:.9rem}
 }
+
+
+/* Kollegiumsseite – dezente Farbcodierung der Hauptbereiche */
+.landing-zone{
+  --zone-accent:#7a8791;
+  --zone-bg:#fafbfc;
+  position:relative;
+  border-color:color-mix(in srgb,var(--zone-accent) 24%,#dfe5e9);
+  background:linear-gradient(135deg,var(--zone-bg),#fff 58%);
+  box-shadow:inset 4px 0 0 var(--zone-accent),0 8px 28px rgba(0,0,0,.035);
+}
+.landing-zone-assistant{
+  --zone-accent:#4f86a3;
+  --zone-bg:#f1f7fa;
+}
+.landing-zone-ticket{
+  --zone-accent:#b8873c;
+  --zone-bg:#fbf7ef;
+  margin:1.5rem 0 0;
+  padding:1.15rem;
+  border:1px solid #eadfc9;
+  border-radius:15px;
+}
+.landing-zone-faq{
+  --zone-accent:#5f9274;
+  --zone-bg:#f2f8f4;
+}
+.landing-zone-status{
+  --zone-accent:#7c739c;
+  --zone-bg:#f6f4fa;
+}
+.landing-zone-heading{margin:0 0 .9rem}
+.landing-zone-heading h2{margin:.15rem 0 .2rem}
+.landing-zone-kicker{
+  display:inline-block;
+  color:#7a5c2e;
+  font-size:.76rem;
+  font-weight:800;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+}
+.landing-zone-ticket .choice{
+  background:rgba(255,255,255,.82);
+  border-color:#e4dac8;
+}
+.landing-zone-ticket .choice:hover{
+  border-color:#caa566;
+  box-shadow:0 3px 12px rgba(122,87,34,.08);
+}
+.landing-zone-faq .faq-item{
+  border-color:#cfe1d6;
+  border-left-color:#5f9274;
+  background:#f8fcf9;
+}
+.landing-zone-faq .faq-item>summary::before{
+  background:#5f9274;
+}
+.landing-zone-faq .faq-item>summary::after{
+  background:#e8f2eb;
+  color:#467258;
+}
+.landing-zone-faq .faq-item[open]>summary{
+  background:#eef7f1;
+}
+.landing-zone-status input:focus,
+.landing-zone-status textarea:focus,
+.landing-zone-status select:focus{
+  border-color:#8d82ac;
+}
+
+.public-anchor-nav a{position:relative;padding-left:1.55rem}
+.public-anchor-nav a::before{
+  content:"";
+  position:absolute;
+  left:.62rem;
+  top:50%;
+  width:.48rem;
+  height:.48rem;
+  border-radius:50%;
+  transform:translateY(-50%);
+  background:#8b969e;
+}
+.public-anchor-nav .anchor-assistant::before{background:#4f86a3}
+.public-anchor-nav .anchor-ticket::before{background:#b8873c}
+.public-anchor-nav .anchor-faq::before{background:#5f9274}
+.public-anchor-nav .anchor-status::before{background:#7c739c}
+
+@media(max-width:600px){
+  .landing-zone-ticket{padding:.9rem}
+  .public-anchor-nav a{padding-left:1.4rem}
+  .public-anchor-nav a::before{left:.55rem}
+}
