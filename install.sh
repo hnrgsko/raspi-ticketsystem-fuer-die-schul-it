@@ -65,44 +65,56 @@ run_step "Anwendungsdatenbank aktualisieren" "${SCRIPT_DIR}/installer/app-migrat
 run_step "Ticketsystem installieren" "${SCRIPT_DIR}/installer/application.sh"
 run_step "Installation prüfen" "${SCRIPT_DIR}/installer/verify.sh"
 
-setup_token="$(cat /var/lib/schulit/setup/bootstrap-token 2>/dev/null || true)"
-access_token="$(cat /etc/schulit/access-token 2>/dev/null || true)"
-ip_address="$(hostname -I 2>/dev/null | awk '{print $1}')"
-hostname_value="$(hostname 2>/dev/null || echo raspberrypi)"
-
-printf '\n'
-printf '============================================================\n'
-printf ' Schul-IT Ticketsystem – Setup-Assistent bereit\n'
-printf '============================================================\n'
-printf ' Hostname: %s\n' "${hostname_value}"
-[[ -n "${ip_address}" ]] && printf ' Lokale IP: %s\n' "${ip_address}"
-printf '\n'
-printf ' Einrichtung im Browser öffnen:\n'
-if [[ -n "${ip_address}" && -n "${setup_token}" ]]; then
-  printf ' http://%s:8080/?token=%s\n' "${ip_address}" "${setup_token}"
-elif [[ -n "${setup_token}" ]]; then
-  printf ' http://%s.local:8080/?token=%s\n' "${hostname_value}" "${setup_token}"
+if [[ "${SCHULIT_DEV_UPDATE:-0}" == "1" ]]; then
+  printf '\n'
+  printf '============================================================\n'
+  printf ' Schul-IT Entwicklungsupdate abgeschlossen\n'
+  printf '============================================================\n'
+  printf ' Der aktuelle main-Stand wurde installiert und geprüft.\n'
+  printf ' Aus Sicherheitsgründen werden in diesem Updateprotokoll\n'
+  printf ' keine Setup- oder Kollegiums-Zugangstokens ausgegeben.\n'
+  printf '============================================================\n'
 else
-  printf ' http://%s.local:8080/\n' "${hostname_value}"
+  setup_token="$(cat /var/lib/schulit/setup/bootstrap-token 2>/dev/null || true)"
+  access_token="$(cat /etc/schulit/access-token 2>/dev/null || true)"
+  ip_address="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  hostname_value="$(hostname 2>/dev/null || echo raspberrypi)"
+  
+  printf '\n'
+  printf '============================================================\n'
+  printf ' Schul-IT Ticketsystem – Setup-Assistent bereit\n'
+  printf '============================================================\n'
+  printf ' Hostname: %s\n' "${hostname_value}"
+  [[ -n "${ip_address}" ]] && printf ' Lokale IP: %s\n' "${ip_address}"
+  printf '\n'
+  printf ' Einrichtung im Browser öffnen:\n'
+  if [[ -n "${ip_address}" && -n "${setup_token}" ]]; then
+    printf ' http://%s:8080/?token=%s\n' "${ip_address}" "${setup_token}"
+  elif [[ -n "${setup_token}" ]]; then
+    printf ' http://%s.local:8080/?token=%s\n' "${hostname_value}" "${setup_token}"
+  else
+    printf ' http://%s.local:8080/\n' "${hostname_value}"
+  fi
+  printf '\n'
+  printf ' Token später erneut anzeigen:\n'
+  printf ' sudo cat /var/lib/schulit/setup/bootstrap-token\n'
+  printf '\n'
+  printf ' Im Browser folgen jetzt Schulname, Schulkennung, erster\n'
+  printf ' System-Administrator und Recovery-Code.\n'
+  printf '\n'
+  printf ' Lokales Ticketsystem für das Kollegium:\n'
+  if [[ -n "${ip_address}" && -n "${access_token}" ]]; then
+    printf ' http://%s:8081/?access=%s\n' "${ip_address}" "${access_token}"
+  elif [[ -n "${access_token}" ]]; then
+    printf ' http://%s.local:8081/?access=%s\n' "${hostname_value}" "${access_token}"
+  fi
+  printf '\n'
+  printf ' Ticket-Admin:\n'
+  if [[ -n "${ip_address}" ]]; then
+    printf ' http://%s:8081/admin/\n' "${ip_address}"
+  else
+    printf ' http://%s.local:8081/admin/\n' "${hostname_value}"
+  fi
+  printf '============================================================\n'
+  
 fi
-printf '\n'
-printf ' Token später erneut anzeigen:\n'
-printf ' sudo cat /var/lib/schulit/setup/bootstrap-token\n'
-printf '\n'
-printf ' Im Browser folgen jetzt Schulname, Schulkennung, erster\n'
-printf ' System-Administrator und Recovery-Code.\n'
-printf '\n'
-printf ' Lokales Ticketsystem für das Kollegium:\n'
-if [[ -n "${ip_address}" && -n "${access_token}" ]]; then
-  printf ' http://%s:8081/?access=%s\n' "${ip_address}" "${access_token}"
-elif [[ -n "${access_token}" ]]; then
-  printf ' http://%s.local:8081/?access=%s\n' "${hostname_value}" "${access_token}"
-fi
-printf '\n'
-printf ' Ticket-Admin:\n'
-if [[ -n "${ip_address}" ]]; then
-  printf ' http://%s:8081/admin/\n' "${ip_address}"
-else
-  printf ' http://%s.local:8081/admin/\n' "${hostname_value}"
-fi
-printf '============================================================\n'
