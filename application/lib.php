@@ -426,16 +426,23 @@ function app_ticket_create(PDO $db, array $input, string $type): array
 
         // Usage statistics are strictly secondary. A statistics failure must never
         // turn an already-created ticket into an apparent submission error.
+        $assistantUsed = (($_SESSION['assistant_used_in_session'] ?? false) === true);
+        $faqUsed = (($_SESSION['faq_used_in_session'] ?? false) === true);
         try {
             app_usage_record($db, 'ticket_created');
-            if (($_SESSION['assistant_used_in_session'] ?? false) === true) {
+            if ($assistantUsed) {
                 app_usage_record($db, 'ticket_after_assistant');
             }
-            if (($_SESSION['faq_used_in_session'] ?? false) === true) {
+            if ($faqUsed) {
                 app_usage_record($db, 'ticket_after_faq');
             }
         } catch (Throwable $usageError) {
             error_log('Schul-IT: usage statistics failed after ticket creation');
+        } finally {
+            // Attribution is consumed by the next ticket only. Without this reset,
+            // every later ticket in the same browser session would be attributed
+            // to an earlier FAQ/assistant interaction.
+            unset($_SESSION['assistant_used_in_session'], $_SESSION['faq_used_in_session']);
         }
 
         return [
@@ -1756,8 +1763,15 @@ function app_usage_record(PDO $db, string $metric): void
     if (str_starts_with($metric, 'assistant_') && session_status() === PHP_SESSION_ACTIVE) {
         $_SESSION['assistant_used_in_session'] = true;
     }
-    if (str_starts_with($metric, 'faq_') && session_status() === PHP_SESSION_ACTIVE) {
-        $_SESSION['faq_used_in_session'] = true;
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        if ($metric === 'faq_public_open' || $metric === 'faq_suggestion_open') {
+            $_SESSION['faq_used_in_session'] = true;
+        } elseif ($metric === 'faq_suggestion_helpful') {
+            // "Hat geholfen" closes this self-service path. A later unrelated
+            // ticket in the same browser session must not be counted as
+            // "Ticket nach FAQ".
+            unset($_SESSION['faq_used_in_session']);
+        }
     }
 }
 
