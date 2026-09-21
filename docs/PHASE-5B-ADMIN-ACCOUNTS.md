@@ -104,3 +104,12 @@ Schutzregeln:
 7. Sperren / Reaktivieren testen
 8. Passwort-Reset testen
 9. Schutz des letzten aktiven System-Admins prüfen
+
+## Hardwaretest Raspberry Pi 4
+
+Am 21.09.2026 erfolgreich getestet:
+- zweites Administratorkonto über Admin → System angelegt,
+- Rollenverwaltung funktioniert,
+- Startpasswort funktioniert,
+- erzwungener Passwortwechsel beim ersten Login funktioniert,
+- anschließende Passwortänderung funktioniert.
