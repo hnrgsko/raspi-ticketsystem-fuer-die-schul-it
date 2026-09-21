@@ -324,7 +324,7 @@ Dokumentation: [Phase 4d – FAQ-Autopilot](docs/PHASE-4D-FAQ-AUTOPILOT.md)
 
 ### Phase 5a – Öffentlicher Zugang mit Cloudflare Tunnel
 
-Auf Raspberry Pi 4 weitgehend erfolgreich real getestet:
+Auf Raspberry Pi 4 erfolgreich real getestet:
 
 - geführte Einrichtung unter **Admin → System**
 - schulindividueller Hostname / Subdomain
@@ -341,7 +341,7 @@ Auf Raspberry Pi 4 weitgehend erfolgreich real getestet:
 - Rotation des Kollegiumslinks auf echter Hardware bestätigt; alter Link wird ungültig und bestehende öffentliche Sitzungen werden beendet
 - Reboot-Rechtefix für den lokalen System-Socket und `noexec`-Fix für die cloudflared-Installation umgesetzt
 
-Noch offen: automatischen Wiederanlauf des bereits eingerichteten Tunnels nach einem erneuten Reboot und bewusstes Trennen des Tunnels testen.
+Auch der automatische Wiederanlauf des bereits eingerichteten Tunnels nach einem Raspberry-Pi-Neustart wurde erfolgreich bestätigt. Das bewusste Trennen des Tunnels bleibt nur noch als optionaler Negativtest offen.
 
 Dokumentation: [Phase 5a – Öffentlicher Zugang](docs/PHASE-5A-PUBLIC-ACCESS.md)
 
