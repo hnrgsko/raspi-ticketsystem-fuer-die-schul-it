@@ -63,6 +63,20 @@ Der Adminbereich zeigt nach erfolgreicher Konfiguration einen Link nach dem Sche
 
 Dieser Link sollte ausschließlich im geschützten Schulportal oder über interne Kommunikationswege verteilt werden.
 
+
+## Kollegiumslink erneuern
+
+Wenn der öffentliche Kollegiumslink versehentlich außerhalb des vorgesehenen Kreises sichtbar wurde, kann ein System-Admin unter **Admin → System → Domain / Cloudflare Tunnel** den Zugang mit **Kollegiumslink erneuern** rotieren.
+
+Dabei:
+
+- wird ein neues kryptografisch zufälliges Zugangstoken erzeugt,
+- wird der bisherige Kollegiumslink sofort ungültig,
+- werden bestehende öffentliche Kollegiumssitzungen beendet,
+- bleiben Cloudflare Tunnel, Domain, Tickets, FAQ und Admin-Sitzungen unverändert.
+
+Anschließend muss nur der neu angezeigte Kollegiumslink im geschützten Schulportal bzw. über den vorgesehenen internen Weg verteilt werden.
+
 ## Sicherheit
 
 ### Kein Portforwarding
