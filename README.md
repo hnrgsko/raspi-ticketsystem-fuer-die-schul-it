@@ -340,6 +340,7 @@ Auf Raspberry Pi 4 erfolgreich real getestet:
 - öffentlicher HTTPS-Zugriff und authentifizierter Kollegiumslink auf echter Hardware bestätigt
 - Rotation des Kollegiumslinks auf echter Hardware bestätigt; alter Link wird ungültig und bestehende öffentliche Sitzungen werden beendet
 - Reboot-Rechtefix für den lokalen System-Socket und `noexec`-Fix für die cloudflared-Installation umgesetzt
+- Admin-Menü → Kollegiumsseite behält den aktuellen Zugang auch nach Tokenrotation; auf Raspberry Pi 4 real getestet.
 
 Auch der automatische Wiederanlauf des bereits eingerichteten Tunnels nach einem Raspberry-Pi-Neustart wurde erfolgreich bestätigt. Das bewusste Trennen des Tunnels bleibt nur noch als optionaler Negativtest offen.
 
