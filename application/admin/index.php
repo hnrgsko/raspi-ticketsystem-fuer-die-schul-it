@@ -1048,7 +1048,7 @@ $lastBackup = is_array($backupStatus['last_backup'] ?? null) ? $backupStatus['la
 <input type="hidden" name="action" value="test_tunnel">
 <button type="submit">Verbindung testen</button>
 </form>
-<a class="button secondary" href="<?= app_escape((string)$tunnelStatus['public_url']) ?>" target="_blank" rel="noopener noreferrer">Öffentliche Seite öffnen</a>
+<?php if ($staffPublicUrl !== ''): ?><a class="button secondary" href="<?= app_escape($staffPublicUrl) ?>" target="_blank" rel="noopener noreferrer">Kollegiumsseite öffnen</a><?php endif; ?>
 </div>
 </div>
 <?php endif; ?>
