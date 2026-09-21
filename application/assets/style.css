@@ -488,3 +488,8 @@ button:disabled,.button[aria-disabled="true"]{cursor:not-allowed;opacity:.5}
   .faq-entry-actions>*{width:100%}
   .faq-link-button,.faq-merge-button{width:100%}
 }
+
+
+/* FAQ-Self-Service Suchstatus */
+.faq-search-status{margin:.75rem 0 0;padding:.7rem .8rem;border-radius:.6rem;background:#fff;border:1px solid #dbe7df}
+.faq-search-status.warning{color:#6b4f00;background:#fff8dc;border-color:#ead99b}
