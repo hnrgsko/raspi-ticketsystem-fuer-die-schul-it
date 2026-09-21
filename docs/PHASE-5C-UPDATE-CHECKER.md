@@ -99,3 +99,17 @@ Auf Raspberry Pi 4 erfolgreich bestätigt:
 - der Adminbereich bleibt der zentrale Einstieg für weitere Entwicklungsupdates.
 
 Damit ist für die Entwicklungsphase kein erneuter Terminalbefehl für gewöhnliche `main`-Updates erforderlich.
+
+
+## Live-Fortschritt bei Entwicklungsupdates
+
+Entwicklungsupdates können im Adminbereich live verfolgt werden. Während der Installation zeigt **Admin → System → Updates**:
+
+- einen Fortschrittsbalken,
+- den aktuell laufenden Schritt,
+- bereits abgeschlossene Schritte,
+- Abschluss oder Fehlerstatus.
+
+Die Anzeige aktualisiert sich automatisch, ohne dass die Seite manuell neu geladen werden muss.
+
+Aus Sicherheitsgründen werden keine Roh-Installerlogs an den Browser übertragen. Die Weboberfläche erhält ausschließlich freigegebene Fortschrittsdaten. Setup- und Kollegiums-Zugangstokens werden bei Entwicklungsupdates außerdem nicht mehr in das Updateprotokoll geschrieben.
