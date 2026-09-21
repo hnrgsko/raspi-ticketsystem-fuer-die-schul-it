@@ -443,3 +443,5 @@ Implementiert, nächster Realtest:
 - bereits verknüpfte Tickets liefern beim Update Suchbegriffe nach
 
 Dokumentation: [Phase 5g – Synergetische FAQ-Zusammenführung](docs/PHASE-5G-FAQ-SYNERGY.md)
+
+- Grafische Admin-Statistik auf Raspberry Pi 4 real getestet: Diagramme werden korrekt angezeigt; Darstellung vom Nutzer bestätigt.
