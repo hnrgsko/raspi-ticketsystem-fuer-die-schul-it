@@ -459,3 +459,32 @@ button:disabled,.button[aria-disabled="true"]{cursor:not-allowed;opacity:.5}
 .faq-helpful-button{margin-top:.4rem}
 .faq-solved-message{margin:1rem 0 0}
 @media(max-width:600px){.faq-ticket-suggestions{padding:.85rem}.faq-helpful-button{width:100%}}
+
+
+/* Phase 5g – synergetisches FAQ-Wissen */
+.faq-synergy-actions{display:grid;gap:.75rem;margin:0 0 1rem}
+.faq-link-form{padding:.9rem;border:1px solid #cfe1d6;border-radius:.7rem;background:#f4faf6}
+.faq-link-form p{margin:.55rem 0 0}
+.faq-link-button{background:#467258!important}
+.faq-supplement-box{border:1px solid #bfd4df;border-radius:.75rem;background:#f8fbfc}
+.faq-supplement-box>summary{cursor:pointer;padding:.9rem 1rem;font-weight:800;color:#24566e}
+.faq-supplement-body{padding:0 1rem 1rem}
+.faq-merge-comparison{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:.25rem 0 1rem}
+.faq-merge-comparison>div{padding:.8rem;border:1px solid #dce4e8;border-radius:.65rem;background:#fff}
+.faq-merge-comparison strong{display:block;margin:.35rem 0}
+.faq-merge-comparison p{margin:.35rem 0}
+.faq-merge-form{margin-top:.5rem}
+.faq-entry-actions{display:flex;gap:.65rem;align-items:flex-start;flex-wrap:wrap;margin-top:.8rem}
+.faq-entry-actions>form{margin:0}
+.faq-entry-edit{min-width:min(100%,560px);border:1px solid #dce4e8;border-radius:.65rem;background:#fbfcfd}
+.faq-entry-edit>summary{cursor:pointer;padding:.65rem .8rem;font-weight:750}
+.faq-entry-edit>form{padding:0 .8rem .8rem}
+.faq-search-count,.faq-revision-count{display:inline-block;padding:.32rem .58rem;border-radius:999px;font-size:.78rem;font-weight:750}
+.faq-search-count{background:#eef7f1;color:#3f6d50}
+.faq-revision-count{background:#f1eef8;color:#625784}
+@media(max-width:700px){
+  .faq-merge-comparison{grid-template-columns:1fr}
+  .faq-entry-actions{display:grid}
+  .faq-entry-actions>*{width:100%}
+  .faq-link-button,.faq-merge-button{width:100%}
+}
