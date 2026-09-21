@@ -358,6 +358,22 @@ Sicherheitsupdates sollen kontrolliert verwaltet werden. Der Expertenbereich zei
 
 Eine spätere Option für automatische Betriebssystem-Sicherheitsupdates kann vorgesehen werden, ist aber nicht identisch mit dem Ticketsystem-Updater.
 
+## Entwicklungs-Shortcut
+
+Während der aktiven Entwicklung darf eine Instanz mit dem Kanal `development` zusätzlich den aktuellen `main`-Stand direkt installieren. Dieser Komfortweg ist klar vom späteren Produktivupdate getrennt.
+
+Eigenschaften:
+
+- nur für `INSTALL_CHANNEL=development`
+- nur für System-Admins
+- fest verdrahtete Quelle: dieses Repository, Branch `main`
+- keine frei wählbare URL und kein frei wählbarer Shellbefehl
+- Installation läuft in einem eigenen systemd-Oneshot-Dienst
+- der bestehende Installer bleibt die einzige Installationslogik
+- normale Migrationen und Health-Checks werden weiterhin ausgeführt
+
+Da `main` veränderlich und nicht als signiertes Release freigegeben ist, wird dieser Weg auf `stable` niemals angeboten. Produktive Schulen erhalten ausschließlich den signierten Releaseprozess.
+
 ## Releaseprozess für den Maintainer
 
 Geplanter Ablauf beim Veröffentlichen:
