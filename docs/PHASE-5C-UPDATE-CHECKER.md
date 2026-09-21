@@ -66,3 +66,22 @@ Am 21.09.2026 erfolgreich getestet:
 - manuelle Prüfung über „Jetzt nach Updates suchen“ funktioniert,
 - für die aktuelle Development-Version wurde korrekt kein stabiles Release erkannt,
 - es wurde erwartungsgemäß nichts installiert.
+
+
+## Entwicklungsinstanzen
+
+Für Testgeräte mit `INSTALL_CHANNEL=development` gibt es zusätzlich unter **Admin → System → Updates** den Button:
+
+**Entwicklerversion aus GitHub aktualisieren**
+
+Dieser Weg ist ausdrücklich nur für Entwicklungsinstanzen gedacht. Er:
+
+- lädt ausschließlich den fest hinterlegten Branch `main` dieses Repositories,
+- startet den normalen Installer als separaten systemd-Oneshot-Job,
+- läuft unabhängig vom `schulit-setupd`, damit dessen Neustart während der Installation den Updatejob nicht beendet,
+- führt dadurch weiterhin alle normalen Installer-Schritte, Migrationen und Systemprüfungen aus,
+- speichert einen kompakten Status und ein lokales Updateprotokoll.
+
+Der Browser übergibt dabei weder beliebige Shellbefehle noch eine frei wählbare Download-URL.
+
+Dieser Entwicklungsweg ersetzt **nicht** den geplanten signierten Stable-Updater. Auf späteren Stable-Installationen wird er nicht angeboten.
