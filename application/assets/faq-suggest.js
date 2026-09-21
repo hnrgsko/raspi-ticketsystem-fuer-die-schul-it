@@ -10,12 +10,14 @@
     const device = form.querySelector('#device');
     const list = panel.querySelector('[data-faq-suggestion-list]');
     const solved = panel.querySelector('[data-faq-solved]');
+    const status = panel.querySelector('[data-faq-search-status]');
     const csrf = document.body?.dataset.usageCsrf || '';
 
     if (!(description instanceof HTMLTextAreaElement)
         || !(category instanceof HTMLSelectElement)
         || !(device instanceof HTMLInputElement)
         || !(list instanceof HTMLElement)
+        || !(status instanceof HTMLElement)
         || !csrf) return;
 
     let timer = 0;
@@ -26,8 +28,17 @@
         document.dispatchEvent(new CustomEvent('schulit-usage', {detail: {metric}}));
     };
 
+    const showStatus = (message, kind = 'muted') => {
+        status.textContent = message;
+        status.className = 'faq-search-status ' + kind;
+        status.hidden = false;
+        panel.hidden = false;
+    };
+
     const clear = () => {
         list.replaceChildren();
+        status.textContent = '';
+        status.hidden = true;
         panel.hidden = true;
         if (solved instanceof HTMLElement) solved.hidden = true;
     };
@@ -99,6 +110,9 @@
         data.append('q', q);
 
         try {
+            list.replaceChildren();
+            showStatus('Passende FAQ werden gesucht …', 'muted');
+
             const response = await fetch('/faq-suggest.php', {
                 method: 'POST',
                 body: data,
@@ -106,21 +120,24 @@
                 signal: controller.signal
             });
             if (!response.ok) {
-                clear();
+                showStatus('Die FAQ-Suche ist gerade nicht verfügbar. Du kannst das Ticket trotzdem normal absenden.', 'warning');
                 return;
             }
             const result = await response.json();
             const suggestions = Array.isArray(result.suggestions) ? result.suggestions : [];
             list.replaceChildren();
+
             if (suggestions.length === 0) {
-                panel.hidden = true;
+                showStatus('Keine passende veröffentlichte FAQ gefunden.', 'muted');
                 return;
             }
+
+            status.hidden = true;
             suggestions.forEach((item) => list.appendChild(makeSuggestion(item)));
             panel.hidden = false;
         } catch (error) {
             if (error && error.name === 'AbortError') return;
-            clear();
+            showStatus('Die FAQ-Suche ist gerade nicht verfügbar. Du kannst das Ticket trotzdem normal absenden.', 'warning');
         }
     };
 
