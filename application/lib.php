@@ -986,6 +986,27 @@ function app_faq_category_id(PDO $db, mixed $value): ?string
     return (string)$id;
 }
 
+function app_faq_suggestion_score(
+    string $query,
+    string $question,
+    string $answer,
+    string $searchTerms,
+    bool $sameCategory
+): float {
+    // Score the public FAQ itself first.
+    $best = app_faq_similarity_score($query, $question . ' ' . $answer, $sameCategory);
+
+    // Learned alternative formulations must not be diluted by concatenating
+    // dozens of unrelated ticket phrases into one giant token set.
+    foreach (preg_split('/\R+/u', $searchTerms) ?: [] as $term) {
+        $term = trim($term);
+        if ($term === '') continue;
+        $best = max($best, app_faq_similarity_score($query, $term, $sameCategory));
+    }
+
+    return $best;
+}
+
 function app_faq_suggestions(PDO $db, mixed $categoryValue, mixed $textValue, int $limit = 3): array
 {
     if (!app_faq_tables_ready($db)) return [];
@@ -999,7 +1020,7 @@ function app_faq_suggestions(PDO $db, mixed $categoryValue, mixed $textValue, in
     }
 
     $searchSelect = app_faq_synergy_ready($db)
-        ? ",COALESCE((SELECT GROUP_CONCAT(st.term SEPARATOR ' ') FROM faq_entry_search_terms st WHERE st.entry_id=f.id),'') AS search_terms"
+        ? ",COALESCE((SELECT GROUP_CONCAT(st.term SEPARATOR '\\n') FROM faq_entry_search_terms st WHERE st.entry_id=f.id),'') AS search_terms"
         : ",'' AS search_terms";
     $entries = $db->query(
         "SELECT f.id,f.category_id,f.question,f.answer,f.weight,c.name AS category_name,
@@ -1016,9 +1037,11 @@ function app_faq_suggestions(PDO $db, mixed $categoryValue, mixed $textValue, in
     foreach ($entries as $entry) {
         $entryCategory = (string)($entry['category_id'] ?? '');
         $sameCategory = $categoryId !== null && $entryCategory !== '' && $entryCategory === $categoryId;
-        $score = app_faq_similarity_score(
+        $score = app_faq_suggestion_score(
             $text,
-            (string)$entry['question'] . ' ' . (string)$entry['answer'] . ' ' . (string)($entry['search_terms'] ?? ''),
+            (string)$entry['question'],
+            (string)$entry['answer'],
+            (string)($entry['search_terms'] ?? ''),
             $sameCategory
         );
 
@@ -1027,7 +1050,7 @@ function app_faq_suggestions(PDO $db, mixed $categoryValue, mixed $textValue, in
         if ($categoryId !== null && $entryCategory !== '' && !$sameCategory) {
             $score -= 8.0;
         }
-        if ($score < 18.0) continue;
+        if ($score < 12.0) continue;
 
         $entry['_score'] = round(max(0.0, min(100.0, $score)), 2);
         $ranked[] = $entry;
