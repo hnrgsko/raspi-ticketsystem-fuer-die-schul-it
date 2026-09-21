@@ -358,11 +358,31 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'faq_link_existing') {
+            $proposalId = (string)($_POST['proposal_id'] ?? '');
+            app_faq_admin_link_existing($db, $proposalId, (string)$user['id']);
+            $_SESSION['admin_notice'] = 'Ticket wurde mit der bestehenden FAQ verknüpft. Der öffentliche FAQ-Text blieb unverändert; neue Suchbegriffe wurden intern ergänzt.';
+            header('Location: /admin/?section=faq', true, 303);
+            exit;
+        }
+
         if ($action === 'faq_merge') {
             $proposalId = (string)($_POST['proposal_id'] ?? '');
             app_faq_admin_merge($db, $proposalId, (string)$user['id'], $_POST);
-            $_SESSION['admin_notice'] = 'Bestehende FAQ wurde aktualisiert und mit dem Ticket verknüpft.';
+            $_SESSION['admin_notice'] = 'Bestehende FAQ wurde kontrolliert ergänzt und mit dem Ticket verknüpft.';
             header('Location: /admin/?section=faq', true, 303);
+            exit;
+        }
+
+        if ($action === 'faq_entry_edit') {
+            app_faq_admin_edit_entry(
+                $db,
+                (string)($_POST['entry_id'] ?? ''),
+                (string)$user['id'],
+                $_POST
+            );
+            $_SESSION['admin_notice'] = 'FAQ wurde bearbeitet. Die vorherige Fassung wurde in der Versionshistorie gesichert.';
+            header('Location: /admin/?section=faq#faq-entry-' . rawurlencode((string)($_POST['entry_id'] ?? '')), true, 303);
             exit;
         }
 
@@ -655,6 +675,15 @@ $recommendationLabel = match ($recommendation) {
     'review' => 'Bitte kurz prüfen',
     default => 'Neue FAQ sinnvoll',
 };
+$mergeQuestion = !empty($proposal['suggested_question'])
+    ? (string)$proposal['suggested_question']
+    : (string)$proposal['question'];
+$mergeAnswer = app_faq_combined_answer(
+    (string)($proposal['suggested_answer'] ?? ''),
+    (string)($proposal['answer_draft'] ?? '')
+);
+$mergeCategoryId = (string)($proposal['suggested_category_id'] ?? '');
+if ($mergeCategoryId === '') $mergeCategoryId = (string)($proposal['category_id'] ?? '');
 ?>
 <article class="faq-moderation-card faq-recommendation-<?= app_escape($recommendation) ?>" id="faq-proposal-<?= app_escape((string)$proposal['id']) ?>">
 <div class="faq-moderation-meta">
@@ -679,6 +708,53 @@ $recommendationLabel = match ($recommendation) {
 <p class="preserve"><?= nl2br(app_escape((string)$proposal['suggested_answer'])) ?></p>
 <small>Bisher mit <?= (int)($proposal['suggested_ticket_count'] ?? 0) ?> Ticket(s) verknüpft.</small>
 </aside>
+
+<div class="faq-synergy-actions">
+<form method="post" class="faq-link-form">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="faq_link_existing">
+<input type="hidden" name="proposal_id" value="<?= app_escape((string)$proposal['id']) ?>">
+<button type="submit" class="faq-link-button">Mit bestehender FAQ verknüpfen</button>
+<p class="muted">Empfohlen, wenn die vorhandene FAQ das Problem bereits ausreichend beantwortet. Öffentlicher Text bleibt unverändert; die neue Formulierung verbessert nur die interne Suche und der Ticketzähler steigt.</p>
+</form>
+
+<details class="faq-supplement-box">
+<summary>Bestehende FAQ inhaltlich ergänzen</summary>
+<div class="faq-supplement-body">
+<div class="faq-merge-comparison">
+<div>
+<span class="label">Bisher öffentlich</span>
+<strong><?= app_escape((string)$proposal['suggested_question']) ?></strong>
+<p class="preserve"><?= nl2br(app_escape((string)$proposal['suggested_answer'])) ?></p>
+</div>
+<div>
+<span class="label">Neuer Supportfall</span>
+<strong><?= app_escape((string)$proposal['question']) ?></strong>
+<p class="preserve"><?= nl2br(app_escape((string)($proposal['answer_draft'] ?? ''))) ?></p>
+</div>
+</div>
+
+<form class="admin-form faq-merge-form" method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="faq_merge">
+<input type="hidden" name="proposal_id" value="<?= app_escape((string)$proposal['id']) ?>">
+<label for="merge-question-<?= app_escape((string)$proposal['id']) ?>">Gemeinsame öffentliche Problemfrage</label>
+<textarea id="merge-question-<?= app_escape((string)$proposal['id']) ?>" name="merge_question" maxlength="400" rows="3" required><?= app_escape($mergeQuestion) ?></textarea>
+<label for="merge-answer-<?= app_escape((string)$proposal['id']) ?>">Gemeinsame öffentliche Antwort</label>
+<textarea id="merge-answer-<?= app_escape((string)$proposal['id']) ?>" name="merge_answer" maxlength="8000" rows="9" required><?= app_escape($mergeAnswer) ?></textarea>
+<label for="merge-category-<?= app_escape((string)$proposal['id']) ?>">Kategorie</label>
+<select id="merge-category-<?= app_escape((string)$proposal['id']) ?>" name="merge_category_id">
+<option value="">Keine feste Kategorie</option>
+<?php foreach ($categories as $category): ?>
+<option value="<?= app_escape((string)$category['id']) ?>"<?= $mergeCategoryId===(string)$category['id'] ? ' selected' : '' ?>><?= app_escape((string)$category['name']) ?></option>
+<?php endforeach; ?>
+</select>
+<p class="warning"><strong>Kontrollierter Merge:</strong> Die bisherige FAQ bleibt Ausgangspunkt. Nur zusätzliche allgemeine Informationen übernehmen. Vor dem Speichern kann die gemeinsame Fassung vollständig bearbeitet werden.</p>
+<button type="submit" class="faq-merge-button">Geprüfte Ergänzung speichern</button>
+</form>
+</div>
+</details>
+</div>
 <?php endif; ?>
 
 <form class="admin-form faq-review-form" method="post">
@@ -692,7 +768,6 @@ $recommendationLabel = match ($recommendation) {
 <label for="faq-category-<?= app_escape((string)$proposal['id']) ?>">Kategorie</label>
 <select id="faq-category-<?= app_escape((string)$proposal['id']) ?>" name="faq_category_id"><option value="">Keine feste Kategorie</option><?php foreach ($categories as $category): ?><option value="<?= app_escape((string)$category['id']) ?>"<?= (string)($proposal['category_id'] ?? '')===(string)$category['id'] ? ' selected' : '' ?>><?= app_escape((string)$category['name']) ?></option><?php endforeach; ?></select>
 <div class="faq-review-actions">
-<?php if (!empty($proposal['suggested_entry_id'])): ?><button type="submit" name="action" value="faq_merge" class="faq-merge-button">Bestehende FAQ aktualisieren</button><?php endif; ?>
 <button type="submit" name="action" value="faq_publish"><?= !empty($proposal['suggested_entry_id']) ? 'Trotzdem neue FAQ veröffentlichen' : 'Prüfen & veröffentlichen' ?></button>
 <button type="submit" name="action" value="faq_reject" class="secondary-button" formnovalidate>Kein FAQ-Fall</button>
 </div>
@@ -706,10 +781,17 @@ $recommendationLabel = match ($recommendation) {
 <?php if ($faqEntries === []): ?><p class="notice">Noch keine FAQ veröffentlicht.</p><?php else: ?>
 <div class="faq-admin-entries">
 <?php foreach ($faqEntries as $entry): ?>
-<article class="faq-entry-admin">
-<div class="faq-entry-meta"><span class="status <?= $entry['status']==='published' ? 'status-done' : 'status-archived' ?>"><?= $entry['status']==='published' ? 'Veröffentlicht' : 'Inaktiv' ?></span><?php if (!empty($entry['category_name'])): ?> <span class="label"><?= app_escape((string)$entry['category_name']) ?></span><?php endif; ?><span class="faq-ticket-count"><?= (int)($entry['ticket_count'] ?? 0) ?> Ticket(s)</span></div>
+<article class="faq-entry-admin" id="faq-entry-<?= app_escape((string)$entry['id']) ?>">
+<div class="faq-entry-meta">
+<span class="status <?= $entry['status']==='published' ? 'status-done' : 'status-archived' ?>"><?= $entry['status']==='published' ? 'Veröffentlicht' : 'Inaktiv' ?></span>
+<?php if (!empty($entry['category_name'])): ?> <span class="label"><?= app_escape((string)$entry['category_name']) ?></span><?php endif; ?>
+<span class="faq-ticket-count"><?= (int)($entry['ticket_count'] ?? 0) ?> Ticket(s)</span>
+<?php if ((int)($entry['search_term_count'] ?? 0) > 0): ?><span class="faq-search-count"><?= (int)$entry['search_term_count'] ?> interne Suchbegriffe</span><?php endif; ?>
+<?php if ((int)($entry['revision_count'] ?? 0) > 0): ?><span class="faq-revision-count"><?= (int)$entry['revision_count'] ?> ältere Fassung(en)</span><?php endif; ?>
+</div>
 <h3><?= app_escape((string)$entry['question']) ?></h3>
 <p class="preserve"><?= nl2br(app_escape((string)$entry['answer'])) ?></p>
+<div class="faq-entry-actions">
 <form method="post">
 <input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
 <input type="hidden" name="action" value="faq_entry_status">
@@ -717,6 +799,29 @@ $recommendationLabel = match ($recommendation) {
 <input type="hidden" name="entry_status" value="<?= $entry['status']==='published' ? 'inactive' : 'published' ?>">
 <button type="submit" class="secondary-button"><?= $entry['status']==='published' ? 'Ausblenden' : 'Wieder veröffentlichen' ?></button>
 </form>
+
+<details class="faq-entry-edit">
+<summary>FAQ bearbeiten</summary>
+<form class="admin-form" method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="faq_entry_edit">
+<input type="hidden" name="entry_id" value="<?= app_escape((string)$entry['id']) ?>">
+<label>Öffentliche Problemfrage
+<textarea name="entry_question" maxlength="400" rows="3" required><?= app_escape((string)$entry['question']) ?></textarea></label>
+<label>Öffentliche Antwort
+<textarea name="entry_answer" maxlength="8000" rows="7" required><?= app_escape((string)$entry['answer']) ?></textarea></label>
+<label>Kategorie
+<select name="entry_category_id">
+<option value="">Keine feste Kategorie</option>
+<?php foreach ($categories as $category): ?>
+<option value="<?= app_escape((string)$category['id']) ?>"<?= (string)($entry['category_id'] ?? '')===(string)$category['id'] ? ' selected' : '' ?>><?= app_escape((string)$category['name']) ?></option>
+<?php endforeach; ?>
+</select></label>
+<p class="muted">Vor jeder Änderung wird die bisherige Fassung intern als Revision gesichert.</p>
+<button type="submit">Änderungen speichern</button>
+</form>
+</details>
+</div>
 </article>
 <?php endforeach; ?>
 </div>
