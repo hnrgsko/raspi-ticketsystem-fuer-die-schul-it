@@ -543,7 +543,7 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <?php if ($faqReady): ?><a class="<?= $section==='faq' ? 'active' : '' ?>" href="/admin/?section=faq">FAQ<?php if ($faqPending !== []): ?> (<?= count($faqPending) ?>)<?php endif; ?></a><?php endif; ?>
 <?php if (($user['role'] ?? '') === 'system_admin'): ?><a class="<?= $section==='system' ? 'active' : '' ?>" href="/admin/?section=system">System</a><?php endif; ?>
 <a class="<?= $section==='account' ? 'active' : '' ?>" href="/admin/?section=account">Passwort ändern</a>
-<a href="/">Kollegiumsseite</a>
+<a href="<?= app_escape(app_public_access_path()) ?>">Kollegiumsseite</a>
 <?php if (($assistant['enabled'] ?? false) && ($assistant['url'] ?? '') !== ''): ?><a href="<?= app_escape((string)$assistant['url']) ?>" target="_blank" rel="noopener noreferrer"><?= app_escape((string)$assistant['label']) ?></a><?php endif; ?>
 </nav>
 
