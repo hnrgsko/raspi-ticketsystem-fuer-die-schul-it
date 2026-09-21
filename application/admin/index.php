@@ -280,6 +280,21 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'rotate_public_access_token') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen den Kollegiumslink erneuern.');
+            }
+            if ((string)($_POST['confirm_access_rotation'] ?? '') !== '1') {
+                throw new RuntimeException('Zum Erneuern des Kollegiumslinks muss die Bestätigung gesetzt werden.');
+            }
+            $result = app_system_request('rotate_public_access_token', [], 20);
+            $ended = (int)($result['invalidated_sessions'] ?? 0);
+            $_SESSION['admin_notice'] = 'Kollegiumslink wurde erneuert. Der alte Link ist ab sofort ungültig'
+                . ($ended > 0 ? '; ' . $ended . ' bestehende Sitzung(en) wurden beendet.' : '.');
+            header('Location: /admin/?section=system#public-access', true, 303);
+            exit;
+        }
+
         if ($action === 'disable_tunnel') {
             if (($user['role'] ?? '') !== 'system_admin') {
                 throw new RuntimeException('Nur System-Administratoren dürfen den öffentlichen Zugang entfernen.');
@@ -1050,6 +1065,17 @@ $lastBackup = is_array($backupStatus['last_backup'] ?? null) ? $backupStatus['la
 </form>
 <?php if ($staffPublicUrl !== ''): ?><a class="button secondary" href="<?= app_escape($staffPublicUrl) ?>" target="_blank" rel="noopener noreferrer">Kollegiumsseite öffnen</a><?php endif; ?>
 </div>
+
+<details class="access-token-rotation">
+<summary>Kollegiumslink erneuern</summary>
+<form class="admin-form" method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="rotate_public_access_token">
+<label class="check-row"><input type="checkbox" name="confirm_access_rotation" value="1" required> Alten Kollegiumslink sofort ungültig machen und bestehende Kollegiumssitzungen beenden</label>
+<p class="muted">Es wird ein neues zufälliges Zugangstoken erzeugt. Der Cloudflare Tunnel und die Domain bleiben unverändert. Anschließend muss nur der neue Kollegiumslink im Schulportal bzw. intern verteilt werden.</p>
+<button type="submit" class="secondary-button">Neuen Kollegiumslink erzeugen</button>
+</form>
+</details>
 </div>
 <?php endif; ?>
 <?php endif; ?>
