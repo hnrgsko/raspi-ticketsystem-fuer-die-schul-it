@@ -572,3 +572,23 @@ button:disabled,.button[aria-disabled="true"]{cursor:not-allowed;opacity:.5}
 .development-update-failed{border-color:#e4c0c0;background:#fff5f5}
 .development-update-status pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:16rem;overflow:auto;font-size:.78rem}
 .development-update-card form{margin:.8rem 0}
+
+
+/* Live-Fortschritt für Development-Updates */
+.development-update-live{margin:.8rem 0 1rem}
+.development-progress-wrap{margin:.75rem 0;padding:.9rem;border:1px solid #dce4e8;border-radius:.75rem;background:#fff}
+.development-progress-head{display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.5rem}
+.development-progress-track{height:.8rem;border-radius:999px;background:#e9eef1;overflow:hidden}
+.development-progress-bar{height:100%;width:0;border-radius:999px;background:#356f8b;transition:width .35s ease}
+.development-step-list{list-style:none;margin:.9rem 0 0;padding:0;display:grid;gap:.4rem}
+.development-step-list li{display:flex;align-items:center;gap:.55rem;color:#7a878e;font-size:.88rem}
+.development-step-list li.current{color:#294a5a;font-weight:800}
+.development-step-list li.done{color:#3f7054}
+.dev-step-icon{display:inline-flex;width:1.1rem;justify-content:center;font-weight:900}
+.development-update-final{margin:.75rem 0}
+.development-update-final.success{padding:.75rem .85rem;border-radius:.65rem;background:#eff8f2;border:1px solid #c7dfcf}
+.development-update-final.error{padding:.75rem .85rem;border-radius:.65rem;background:#fff3f3;border:1px solid #e5c4c4}
+@media(max-width:600px){
+  .development-progress-wrap{padding:.75rem}
+  .development-step-list li{font-size:.83rem}
+}
