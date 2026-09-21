@@ -447,3 +447,5 @@ Dokumentation: [Phase 5g – Synergetische FAQ-Zusammenführung](docs/PHASE-5G-F
 - Grafische Admin-Statistik auf Raspberry Pi 4 real getestet: Diagramme werden korrekt angezeigt; Darstellung vom Nutzer bestätigt.
 
 - Backup-Admin auf Raspberry Pi 4 real getestet: manuelles verschlüsseltes Backup über Admin → System erfolgreich; Anzeige der letzten Sicherung aktualisiert. Dauerhafter Reboot-Fix für den setupd-Socket noch separat zu bestätigen.
+
+- Update-Checker auf Raspberry Pi 4 real getestet: manuelle Prüfung funktioniert; für die aktuelle Development-Version wurde korrekt kein stabiles Release erkannt, es wurde nichts installiert.
