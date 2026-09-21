@@ -324,6 +324,18 @@ if ($db instanceof PDO && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($action === 'start_development_update') {
+            if (($user['role'] ?? '') !== 'system_admin') {
+                throw new RuntimeException('Nur System-Administratoren dürfen die Entwicklerversion aktualisieren.');
+            }
+            $result = app_system_request('start_development_update', [], 20);
+            $_SESSION['admin_notice'] = (($result['state'] ?? '') === 'running')
+                ? 'Entwicklungsupdate wurde gestartet. Die Installation läuft im Hintergrund; bitte diese Seite nach kurzer Zeit neu laden.'
+                : 'Entwicklungsupdate wurde angefordert.';
+            header('Location: /admin/?section=system#updates', true, 303);
+            exit;
+        }
+
         if ($action === 'create_backup') {
             if (($user['role'] ?? '') !== 'system_admin') {
                 throw new RuntimeException('Nur System-Administratoren dürfen manuelle Sicherungen starten.');
@@ -473,6 +485,14 @@ if ($user !== null) {
         $updateStatus = app_system_request('update_status', [], 5);
     } catch (Throwable) {
         $updateStatus = null;
+    }
+}
+$devUpdateStatus = null;
+if ($user !== null && ($user['role'] ?? '') === 'system_admin' && $section === 'system') {
+    try {
+        $devUpdateStatus = app_system_request('development_update_status', [], 5);
+    } catch (Throwable) {
+        $devUpdateStatus = null;
     }
 }
 $tunnelStatus = null;
@@ -969,6 +989,38 @@ if ($mergeCategoryId === '') $mergeCategoryId = (string)($proposal['category_id'
 <input type="hidden" name="action" value="check_updates">
 <button type="submit" class="secondary-button">Jetzt nach Updates suchen</button>
 </form>
+
+<?php if (($updateStatus['channel'] ?? '') === 'development'): ?>
+<div class="development-update-card">
+<span class="label">Nur Testsystem</span>
+<h2>Entwicklerversion</h2>
+<p>Diese Entwicklungsinstanz kann direkt auf den aktuellen Stand des GitHub-Branches <code>main</code> aktualisiert werden. Das ist bewusst getrennt vom späteren signierten Release-Update für Schulen.</p>
+
+<?php if (is_array($devUpdateStatus)): ?>
+<?php $devState = (string)($devUpdateStatus['state'] ?? 'idle'); ?>
+<div class="development-update-status development-update-<?= app_escape($devState) ?>">
+<strong><?=
+    $devState === 'running' ? 'Update läuft' :
+    ($devState === 'success' ? 'Letztes Entwicklungsupdate erfolgreich' :
+    ($devState === 'failed' ? 'Letztes Entwicklungsupdate fehlgeschlagen' : 'Bereit'))
+?></strong>
+<?php if (!empty($devUpdateStatus['message'])): ?><span><?= app_escape((string)$devUpdateStatus['message']) ?></span><?php endif; ?>
+<?php if (!empty($devUpdateStatus['finished_at'])): ?><small>Abgeschlossen: <?= app_escape(app_local_time((string)$devUpdateStatus['finished_at'])) ?></small><?php endif; ?>
+<?php if ($devState === 'failed' && !empty($devUpdateStatus['detail'])): ?><details><summary>Fehlerdetails</summary><pre><?= app_escape((string)$devUpdateStatus['detail']) ?></pre></details><?php endif; ?>
+</div>
+
+<form method="post">
+<input type="hidden" name="csrf" value="<?= app_escape($csrf) ?>">
+<input type="hidden" name="action" value="start_development_update">
+<button type="submit"<?= $devState === 'running' ? ' disabled' : '' ?>><?= $devState === 'running' ? 'Update läuft …' : 'Entwicklerversion aus GitHub aktualisieren' ?></button>
+</form>
+<?php else: ?>
+<p class="notice">Der Entwicklungs-Updater ist auf diesem Stand noch nicht installiert. Einmalig den normalen Installer ausführen; danach sind weitere main-Updates über diesen Button möglich.</p>
+<?php endif; ?>
+
+<p class="muted"><strong>Entwicklungsmodus:</strong> Dieser Weg folgt einem veränderlichen GitHub-Branch und besitzt bewusst nicht die Signaturgarantien des späteren Stable-Updaters. Er erscheint ausschließlich auf Entwicklungsinstanzen.</p>
+</div>
+<?php endif; ?>
 <?php endif; ?>
 </section>
 
