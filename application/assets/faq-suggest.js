@@ -71,10 +71,7 @@
         helpful.textContent = 'Das hat geholfen – kein Ticket nötig';
         helpful.addEventListener('click', () => {
             usage('faq_suggestion_helpful');
-            if (solved instanceof HTMLElement) {
-                solved.hidden = false;
-                solved.scrollIntoView({behavior: 'smooth', block: 'nearest'});
-            }
+            window.location.assign('/');
         });
         body.appendChild(helpful);
         details.appendChild(body);
