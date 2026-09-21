@@ -70,3 +70,15 @@ Es werden keine individuellen Nutzerprofile erzeugt.
 8. Statistik prüfen
 9. alternativ Ticket trotzdem abschicken
 10. „Ticket nach FAQ-Nutzung“ in Statistik prüfen
+
+
+## Hardwaretest Raspberry Pi 4
+
+Am 21.09.2026 auf echter Hardware bestätigt:
+
+- öffentliche FAQ wurde geöffnet und als Nutzung gezählt
+- ein automatischer FAQ-Vorschlag wurde geöffnet und als Nutzung gezählt
+- **„Hat geholfen“** wurde ausgelöst und korrekt gezählt
+- die Kennzahl **„Ticket nach FAQ“** wurde im Admin-Statistikbereich sichtbar
+
+Beim Test fiel auf, dass die ursprüngliche Sitzungslogik eine frühere FAQ-Nutzung auf mehrere spätere Tickets derselben Browsersitzung übertragen konnte. Das wurde korrigiert: FAQ-/Assistenten-Zuordnung wird nun nach dem nächsten Ticket verbraucht; **„Hat geholfen“** beendet die FAQ-Zuordnung bereits vorher. Dadurch werden spätere, unabhängige Tickets nicht mehr fälschlich dem Self-Service zugerechnet.
