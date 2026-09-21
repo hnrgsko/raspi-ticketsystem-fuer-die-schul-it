@@ -47,3 +47,12 @@ Zusätzlich korrigiert:
 5. neues Archiv auf USB prüfen.
 6. USB entfernen und Status prüfen.
 7. Restore-Rehearsal erneut durchführen.
+
+## Hardwaretest Raspberry Pi 4
+
+Am 21.09.2026 erfolgreich getestet:
+- Admin → System → Backups zeigt den vorhandenen Backup-Status nach Wiederherstellung des setupd-Socket-Zugriffs.
+- „Backup jetzt erstellen“ erzeugt eine aktuelle Sicherung.
+- Die Anzeige „Letzte Sicherung“ wird anschließend aktualisiert.
+
+Hinweis: Der beim Neustart gefundene Rechtefehler für `/run/schulit` wurde separat behoben; der dauerhafte Reboot-Fix muss noch durch einen weiteren Neustart auf Hardware bestätigt werden.
