@@ -85,3 +85,17 @@ Dieser Weg ist ausdrücklich nur für Entwicklungsinstanzen gedacht. Er:
 Der Browser übergibt dabei weder beliebige Shellbefehle noch eine frei wählbare Download-URL.
 
 Dieser Entwicklungsweg ersetzt **nicht** den geplanten signierten Stable-Updater. Auf späteren Stable-Installationen wird er nicht angeboten.
+
+
+## Hardwaretest Entwicklungsupdate
+
+Auf Raspberry Pi 4 erfolgreich bestätigt:
+
+- der Development-Updater wird nach einmaliger normaler Installation angeboten,
+- **Admin → System → Updates → Entwicklerversion aus GitHub aktualisieren** startet den Hintergrundjob,
+- der aktuelle `main`-Stand wird installiert,
+- der normale Installer läuft durch,
+- Migrationen und Systemprüfungen bleiben Bestandteil des Ablaufs,
+- der Adminbereich bleibt der zentrale Einstieg für weitere Entwicklungsupdates.
+
+Damit ist für die Entwicklungsphase kein erneuter Terminalbefehl für gewöhnliche `main`-Updates erforderlich.
