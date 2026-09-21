@@ -552,3 +552,9 @@ button:disabled,.button[aria-disabled="true"]{cursor:not-allowed;opacity:.5}
   .stats-bar-value{grid-column:2;grid-row:1}
   .stats-axis-label{font-size:10px}
 }
+
+
+/* Öffentlicher Kollegiumslink – Tokenrotation */
+.access-token-rotation{margin-top:.9rem;border:1px solid #dce4e8;border-radius:.75rem;background:#fff}
+.access-token-rotation>summary{cursor:pointer;padding:.85rem 1rem;font-weight:800}
+.access-token-rotation>form{padding:0 1rem 1rem}
