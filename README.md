@@ -369,7 +369,7 @@ Dokumentation: [Phase 5b – Administratorkonten](docs/PHASE-5B-ADMIN-ACCOUNTS.m
 
 Für Entwicklungsinstanzen gibt es zusätzlich einen Hardware-Test-Workflow über **Admin → System → Updates → Entwicklerversion aus GitHub aktualisieren**. Dieser lädt den aktuellen `main`-Stand und führt den normalen Installer im Hintergrund aus. Stable-Installationen erhalten diesen unsignierten Entwicklungsweg nicht.
 
-Implementiert, nächster Realtest:
+Auf Raspberry Pi 4 erfolgreich real getestet: manuelle Releaseprüfung und der Development-Button für direkte `main`-Updates funktionieren.
 
 - automatische Releaseprüfung alle sechs Stunden
 - manuelle Prüfung im Systembereich
