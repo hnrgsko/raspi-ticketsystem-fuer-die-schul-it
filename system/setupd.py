@@ -35,6 +35,8 @@ RECOVERY_DIR = pathlib.Path("/var/lib/schulit/recovery")
 RECOVERY_FILE = RECOVERY_DIR / "recovery.json"
 CONFIG_DIR = pathlib.Path("/etc/schulit")
 APP_CONFIG = CONFIG_DIR / "app.php"
+ACCESS_TOKEN_FILE = CONFIG_DIR / "access-token"
+PUBLIC_SESSION_DIR = pathlib.Path("/var/lib/schulit/sessions")
 BACKUP_CONFIG = CONFIG_DIR / "backup.json"
 TUNNEL_CONFIG = CONFIG_DIR / "tunnel.json"
 TUNNEL_TOKEN_FILE = CONFIG_DIR / "cloudflared-token.env"
@@ -772,6 +774,30 @@ def disable_tunnel(remove_credentials: bool = True) -> dict[str, Any]:
     return get_tunnel_status()
 
 
+def rotate_public_access_token() -> dict[str, Any]:
+    if not STATE_FILE.exists():
+        raise SetupError("Der Kollegiumszugang kann erst nach der Ersteinrichtung erneuert werden.")
+
+    token = secrets.token_hex(32)
+    atomic_write(ACCESS_TOKEN_FILE, token + "\n", 0o640, "www-data")
+
+    invalidated = 0
+    if PUBLIC_SESSION_DIR.is_dir():
+        for child in PUBLIC_SESSION_DIR.iterdir():
+            try:
+                if child.is_file() and not child.is_symlink():
+                    child.unlink()
+                    invalidated += 1
+            except OSError as exc:
+                raise SetupError("Bestehende Kollegiumssitzungen konnten nicht vollständig beendet werden.") from exc
+
+    return {
+        "ok": True,
+        "rotated_at": now_iso(),
+        "invalidated_sessions": invalidated,
+    }
+
+
 def test_tunnel() -> dict[str, Any]:
     status = get_tunnel_status()
     hostname = str(status.get("hostname") or "")
@@ -882,6 +908,8 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
         return configure_tunnel(payload)
     if action == "test_tunnel":
         return test_tunnel()
+    if action == "rotate_public_access_token":
+        return rotate_public_access_token()
     if action == "disable_tunnel":
         return disable_tunnel(True)
     if action == "update_status":
