@@ -9,7 +9,6 @@
     const category = form.querySelector('#category_id');
     const device = form.querySelector('#device');
     const list = panel.querySelector('[data-faq-suggestion-list]');
-    const solved = panel.querySelector('[data-faq-solved]');
     const status = panel.querySelector('[data-faq-search-status]');
     const csrf = document.body?.dataset.usageCsrf || '';
 
@@ -40,7 +39,6 @@
         status.textContent = '';
         status.hidden = true;
         panel.hidden = true;
-        if (solved instanceof HTMLElement) solved.hidden = true;
     };
 
     const makeSuggestion = (item) => {
