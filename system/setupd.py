@@ -887,7 +887,17 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def serve() -> None:
+    # /run is tmpfs and is recreated on every boot. Because the systemd unit
+    # intentionally uses UMask=0077, mkdir() alone would create /run/schulit
+    # as root-only (0700). Apache/PHP runs as www-data and then cannot traverse
+    # the directory to reach the otherwise correctly permissioned Unix socket.
+    #
+    # Keep the runtime directory private from other users while explicitly
+    # granting the web group traversal access.
     SOCKET_PATH.parent.mkdir(parents=True, exist_ok=True)
+    os.chown(SOCKET_PATH.parent, 0, grp.getgrnam("www-data").gr_gid)
+    os.chmod(SOCKET_PATH.parent, 0o750)
+
     if SOCKET_PATH.exists() or SOCKET_PATH.is_socket():
         SOCKET_PATH.unlink()
 
