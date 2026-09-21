@@ -997,16 +997,48 @@ if ($mergeCategoryId === '') $mergeCategoryId = (string)($proposal['category_id'
 <p>Diese Entwicklungsinstanz kann direkt auf den aktuellen Stand des GitHub-Branches <code>main</code> aktualisiert werden. Das ist bewusst getrennt vom späteren signierten Release-Update für Schulen.</p>
 
 <?php if (is_array($devUpdateStatus)): ?>
-<?php $devState = (string)($devUpdateStatus['state'] ?? 'idle'); ?>
+<?php
+$devState = (string)($devUpdateStatus['state'] ?? 'idle');
+$devProgress = max(0, min(100, (int)($devUpdateStatus['progress'] ?? ($devState === 'success' ? 100 : 0))));
+$devCurrent = (string)($devUpdateStatus['current_label'] ?? $devUpdateStatus['message'] ?? 'Bereit');
+$devSteps = is_array($devUpdateStatus['steps'] ?? null) ? $devUpdateStatus['steps'] : [];
+$devCompleted = is_array($devUpdateStatus['completed_steps'] ?? null) ? $devUpdateStatus['completed_steps'] : [];
+$devCurrentKey = (string)($devUpdateStatus['current_step'] ?? '');
+?>
+<div class="development-update-live" data-development-update-live data-state="<?= app_escape($devState) ?>">
 <div class="development-update-status development-update-<?= app_escape($devState) ?>">
 <strong><?=
     $devState === 'running' ? 'Update läuft' :
     ($devState === 'success' ? 'Letztes Entwicklungsupdate erfolgreich' :
     ($devState === 'failed' ? 'Letztes Entwicklungsupdate fehlgeschlagen' : 'Bereit'))
 ?></strong>
-<?php if (!empty($devUpdateStatus['message'])): ?><span><?= app_escape((string)$devUpdateStatus['message']) ?></span><?php endif; ?>
+<span data-dev-current><?= app_escape($devCurrent) ?></span>
 <?php if (!empty($devUpdateStatus['finished_at'])): ?><small>Abgeschlossen: <?= app_escape(app_local_time((string)$devUpdateStatus['finished_at'])) ?></small><?php endif; ?>
-<?php if ($devState === 'failed' && !empty($devUpdateStatus['detail'])): ?><details><summary>Fehlerdetails</summary><pre><?= app_escape((string)$devUpdateStatus['detail']) ?></pre></details><?php endif; ?>
+</div>
+
+<div class="development-progress-wrap">
+<div class="development-progress-head"><strong>Fortschritt</strong><span data-dev-progress-text><?= $devProgress ?> %</span></div>
+<div class="development-progress-track" role="progressbar" aria-label="Entwicklungsupdate" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $devProgress ?>">
+<div class="development-progress-bar" data-dev-progress style="width:<?= $devProgress ?>%" aria-valuenow="<?= $devProgress ?>"></div>
+</div>
+<ol class="development-step-list" data-dev-steps>
+<?php foreach ($devSteps as $step): ?>
+<?php
+$stepKey = is_array($step) ? (string)($step['key'] ?? '') : '';
+$stepLabel = is_array($step) ? (string)($step['label'] ?? $stepKey) : '';
+$isDone = in_array($stepKey, $devCompleted, true);
+$isCurrent = $devState === 'running' && $stepKey === $devCurrentKey;
+?>
+<li class="<?= $isDone ? 'done' : ($isCurrent ? 'current' : '') ?>">
+<span class="dev-step-icon"><?= $isDone ? '✓' : ($isCurrent ? '●' : '○') ?></span>
+<span><?= app_escape($stepLabel) ?></span>
+</li>
+<?php endforeach; ?>
+</ol>
+</div>
+
+<p class="development-update-final <?= $devState === 'success' ? 'success' : ($devState === 'failed' ? 'error' : '') ?>" data-dev-final<?= in_array($devState, ['success','failed'], true) ? '' : ' hidden' ?>><?= app_escape((string)($devUpdateStatus['message'] ?? '')) ?></p>
+<button type="button" class="secondary-button" data-dev-reload onclick="window.location.reload()"<?= $devState === 'success' ? '' : ' hidden' ?>>Aktualisierte Seite neu laden</button>
 </div>
 
 <form method="post">
@@ -1018,7 +1050,7 @@ if ($mergeCategoryId === '') $mergeCategoryId = (string)($proposal['category_id'
 <p class="notice">Der Entwicklungs-Updater ist auf diesem Stand noch nicht installiert. Einmalig den normalen Installer ausführen; danach sind weitere main-Updates über diesen Button möglich.</p>
 <?php endif; ?>
 
-<p class="muted"><strong>Entwicklungsmodus:</strong> Dieser Weg folgt einem veränderlichen GitHub-Branch und besitzt bewusst nicht die Signaturgarantien des späteren Stable-Updaters. Er erscheint ausschließlich auf Entwicklungsinstanzen.</p>
+<p class="muted"><strong>Entwicklungsmodus:</strong> Während des Updates werden nur freigegebene Fortschrittsschritte angezeigt. Rohprotokolle und Zugangstokens werden nicht an den Browser übertragen.</p>
 </div>
 <?php endif; ?>
 <?php endif; ?>
@@ -1414,5 +1446,6 @@ $lastBackup = is_array($backupStatus['last_backup'] ?? null) ? $backupStatus['la
 </main>
 <footer class="admin-footer">Schul-IT Ticketsystem · lokale Raspberry-Pi-Instanz<?php if (is_array($updateStatus) && !empty($updateStatus['installed_version'])): ?> · Version <?= app_escape((string)$updateStatus['installed_version']) ?><?= ($updateStatus['available'] ?? false) ? ' · Update verfügbar' : '' ?><?php endif; ?></footer>
 <?php if ($user !== null && $section === 'stats'): ?><script src="/assets/stats-charts.js" defer></script><?php endif; ?>
+<?php if ($user !== null && $section === 'system' && ($user['role'] ?? '') === 'system_admin'): ?><script src="/assets/development-update.js" defer></script><?php endif; ?>
 </body>
 </html>
