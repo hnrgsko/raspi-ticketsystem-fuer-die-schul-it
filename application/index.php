@@ -290,6 +290,7 @@ $assistantWidgetActive = $authorized
   <span class="label">Vielleicht schon gelöst</span>
   <h2>Passt eine dieser Lösungen?</h2>
   <p class="muted">Die Vorschläge werden nur lokal aus den veröffentlichten FAQ dieser Schule ermittelt.</p>
+  <p class="faq-search-status muted" data-faq-search-status hidden></p>
   <div data-faq-suggestion-list class="faq-ticket-suggestion-list"></div>
   <p class="success faq-solved-message" data-faq-solved hidden><strong>Super.</strong> Wenn das Problem damit gelöst ist, musst du dieses Ticket nicht absenden.</p>
 </section>
