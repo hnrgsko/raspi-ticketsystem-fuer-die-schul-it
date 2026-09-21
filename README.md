@@ -426,3 +426,20 @@ sudo schulit-diagnostics
 ```
 
 Es gibt keine Passwörter, Access-Tokens, Recovery-Codes, Tunnel-Tokens oder Ticketinhalte aus.
+
+
+### Phase 5g – Synergetische FAQ-Zusammenführung
+
+Implementiert, nächster Realtest:
+
+- **Mit bestehender FAQ verknüpfen** ohne öffentliche Inhalte zu verändern
+- Ticketzähler steigt bei Verknüpfung
+- neue Nutzerformulierungen werden als interne Suchbegriffe gelernt
+- FAQ-Suche und Dublettenerkennung berücksichtigen diese Begriffe
+- **Bestehende FAQ inhaltlich ergänzen** mit Alt/Neu-Vergleich
+- gemeinsame Fassung muss vor Speicherung bearbeitet bzw. bestätigt werden
+- vorherige FAQ-Fassung wird vor Änderungen intern gesichert
+- veröffentlichte FAQ können direkt manuell bearbeitet werden
+- bereits verknüpfte Tickets liefern beim Update Suchbegriffe nach
+
+Dokumentation: [Phase 5g – Synergetische FAQ-Zusammenführung](docs/PHASE-5G-FAQ-SYNERGY.md)
