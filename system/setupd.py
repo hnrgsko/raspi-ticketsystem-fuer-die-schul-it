@@ -596,7 +596,12 @@ def ensure_cloudflared() -> str:
         return existing
 
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = pathlib.Path("/run/schulit/cloudflared.download")
+
+    # /run is commonly mounted noexec on Debian/Raspberry Pi OS. Downloading
+    # there and then executing the binary for its version check therefore
+    # fails with EACCES even when file permissions are correct. Use the
+    # root-owned target directory instead; the final os.replace() stays atomic.
+    tmp = CLOUDFLARED_BIN.with_name(".cloudflared.schulit-download")
     try:
         _run_system([
             "curl",
