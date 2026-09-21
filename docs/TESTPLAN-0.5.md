@@ -220,6 +220,49 @@ Nach Zusammenführen:
 
 ---
 
+## 7a. Synergetische FAQ-Verknüpfung
+
+Bei einem ähnlichen Ticket mit bereits vorhandener FAQ:
+
+### Test A – nur verknüpfen
+
+- **Mit bestehender FAQ verknüpfen**
+
+Erwartung:
+
+- bestehende öffentliche Frage bleibt unverändert
+- bestehende öffentliche Antwort bleibt unverändert
+- Ticketzähler steigt
+- interne Suchbegriffe steigen
+
+### Test B – echte Ergänzung
+
+Bei einem weiteren Ticket mit zusätzlicher allgemeiner Lösungsinformation:
+
+- **Bestehende FAQ inhaltlich ergänzen** öffnen
+- Altbestand und neuen Supportfall vergleichen
+- gemeinsame Fassung prüfen/bearbeiten
+- **Geprüfte Ergänzung speichern**
+
+Erwartung:
+
+- alte Informationen bleiben erhalten
+- neue allgemeine Information wird ergänzt
+- vorherige Fassung wird als Revision gezählt
+
+### Test C – manuelle Bearbeitung
+
+Unter veröffentlichter FAQ:
+
+- **FAQ bearbeiten**
+
+Erwartung:
+
+- Frage/Antwort können korrigiert werden
+- vorherige Fassung wird als Revision gesichert
+
+---
+
 ## 8. FAQ-Self-Service vor Ticketabgabe
 
 Neues Supportformular öffnen.
