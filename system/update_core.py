@@ -11,6 +11,8 @@ from typing import Any
 
 SYSTEM_CONF = pathlib.Path("/etc/schulit/system.conf")
 STATUS_FILE = pathlib.Path("/var/lib/schulit/update-state/status.json")
+DEV_STATUS_FILE = pathlib.Path("/var/lib/schulit/update-state/development.json")
+DEV_UNIT = "schulit-development-update.service"
 RELEASE_API = "https://api.github.com/repos/hnrgsko/raspi-ticketsystem-fuer-die-schul-it/releases/latest"
 SEMVER_RE = re.compile(
     r"\Av?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z.-]+))?\Z"
@@ -69,6 +71,101 @@ def _write_status(payload: dict[str, Any]) -> None:
     import grp
     os.chown(tmp, 0, grp.getgrnam("www-data").gr_gid)
     tmp.replace(STATUS_FILE)
+
+
+def _write_dev_status(payload: dict[str, Any]) -> None:
+    DEV_STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = DEV_STATUS_FILE.with_name(DEV_STATUS_FILE.name + ".tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.chmod(0o640)
+    import grp
+    os.chown(tmp, 0, grp.getgrnam("www-data").gr_gid)
+    tmp.replace(DEV_STATUS_FILE)
+
+
+def _unit_active(unit: str) -> bool:
+    try:
+        completed = subprocess.run(
+            ["systemctl", "is-active", "--quiet", unit],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=10,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+    return completed.returncode == 0
+
+
+def development_status() -> dict[str, Any]:
+    conf = _read_system_conf()
+    supported = conf.get("INSTALL_CHANNEL", "development") == "development"
+    payload: dict[str, Any] = {
+        "ok": True,
+        "supported": supported,
+        "state": "idle",
+        "started_at": "",
+        "finished_at": "",
+        "message": "",
+        "detail": "",
+        "service_active": False,
+    }
+    if DEV_STATUS_FILE.is_file():
+        try:
+            loaded = json.loads(DEV_STATUS_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                payload.update(loaded)
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    active = _unit_active(DEV_UNIT)
+    payload["ok"] = True
+    payload["supported"] = supported
+    payload["service_active"] = active
+    if active:
+        payload["state"] = "running"
+        if not payload.get("message"):
+            payload["message"] = "Entwicklungsupdate läuft."
+    return payload
+
+
+def start_development_update() -> dict[str, Any]:
+    conf = _read_system_conf()
+    if conf.get("INSTALL_CHANNEL", "development") != "development":
+        raise UpdateError("Direkte GitHub-main-Updates sind nur auf Entwicklungsinstanzen erlaubt.")
+    if _unit_active(DEV_UNIT):
+        return development_status()
+
+    starting = {
+        "ok": True,
+        "supported": True,
+        "state": "running",
+        "started_at": now_iso(),
+        "finished_at": "",
+        "message": "Entwicklungsupdate wird gestartet.",
+        "detail": "",
+        "service_active": True,
+    }
+    _write_dev_status(starting)
+
+    try:
+        completed = subprocess.run(
+            ["systemctl", "start", "--no-block", DEV_UNIT],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+            timeout=15,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        raise UpdateError("Entwicklungsupdate konnte nicht gestartet werden.") from exc
+    if completed.returncode != 0:
+        detail = (completed.stderr or "").strip()
+        raise UpdateError(
+            "Entwicklungsupdate konnte nicht gestartet werden"
+            + (f": {detail}" if detail else ".")
+        )
+    return development_status()
 
 
 def status() -> dict[str, Any]:
