@@ -16,6 +16,25 @@ CREATE TABLE IF NOT EXISTS faq_entry_search_terms (
         FOREIGN KEY (source_ticket_id) REFERENCES tickets(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Backfill internal search knowledge from already linked support tickets.
+INSERT IGNORE INTO faq_entry_search_terms(entry_id,source_ticket_id,term)
+SELECT ft.entry_id,ft.ticket_id,LEFT(TRIM(t.description),500)
+FROM faq_entry_tickets ft
+JOIN tickets t ON t.id=ft.ticket_id
+WHERE TRIM(COALESCE(t.description,''))<>'';
+
+INSERT IGNORE INTO faq_entry_search_terms(entry_id,source_ticket_id,term)
+SELECT ft.entry_id,ft.ticket_id,LEFT(TRIM(t.device),500)
+FROM faq_entry_tickets ft
+JOIN tickets t ON t.id=ft.ticket_id
+WHERE TRIM(COALESCE(t.device,''))<>'';
+
+INSERT IGNORE INTO faq_entry_search_terms(entry_id,source_ticket_id,term)
+SELECT ft.entry_id,ft.ticket_id,LEFT(TRIM(t.defect_subject),500)
+FROM faq_entry_tickets ft
+JOIN tickets t ON t.id=ft.ticket_id
+WHERE TRIM(COALESCE(t.defect_subject,''))<>'';
+
 CREATE TABLE IF NOT EXISTS faq_entry_revisions (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     entry_id BIGINT UNSIGNED NOT NULL,
