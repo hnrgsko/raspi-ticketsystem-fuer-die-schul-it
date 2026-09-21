@@ -112,6 +112,8 @@ check "Backup-Timer installiert" systemctl cat schulit-backup.timer
 check "Update-Prüftimer installiert" systemctl cat schulit-update-check.timer
 check "Update-Prüftimer aktiviert" systemctl is-enabled schulit-update-check.timer
 check "Update-Prüfmodul importierbar" python3 -c 'import sys; sys.path.insert(0,"/usr/local/lib/schulit"); import update_core'
+check "Entwicklungs-Updater installiert" systemctl cat schulit-development-update.service
+check "Entwicklungs-Updater ausführbar" test -x /usr/local/lib/schulit/development_update.py
 check "PHP CLI verfügbar" php -v
 check "PDO MySQL geladen" php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);'
 check "mbstring geladen" php -r 'exit(extension_loaded("mbstring") ? 0 : 1);'
