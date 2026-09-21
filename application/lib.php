@@ -56,6 +56,14 @@ function app_system_request(string $action, array $payload = [], int $timeout = 
     return $decoded;
 }
 
+function app_public_access_path(): string
+{
+    if (!is_readable(SCHULIT_ACCESS_TOKEN)) return '/';
+    $token = trim((string)file_get_contents(SCHULIT_ACCESS_TOKEN));
+    if ($token === '') return '/';
+    return '/?access=' . rawurlencode($token);
+}
+
 function app_public_access_url(string $hostname): string
 {
     $hostname = strtolower(trim($hostname));
