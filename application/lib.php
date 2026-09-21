@@ -998,9 +998,13 @@ function app_faq_suggestions(PDO $db, mixed $categoryValue, mixed $textValue, in
         $categoryId = $categoryValue;
     }
 
+    $searchSelect = app_faq_synergy_ready($db)
+        ? ",COALESCE((SELECT GROUP_CONCAT(st.term SEPARATOR ' ') FROM faq_entry_search_terms st WHERE st.entry_id=f.id),'') AS search_terms"
+        : ",'' AS search_terms";
     $entries = $db->query(
         "SELECT f.id,f.category_id,f.question,f.answer,f.weight,c.name AS category_name,
-                (SELECT COUNT(*) FROM faq_entry_tickets ft WHERE ft.entry_id=f.id) AS ticket_count
+                (SELECT COUNT(*) FROM faq_entry_tickets ft WHERE ft.entry_id=f.id) AS ticket_count"
+                . $searchSelect . "
          FROM faq_entries f
          LEFT JOIN categories c ON c.id=f.category_id
          WHERE f.status='published'
@@ -1014,7 +1018,7 @@ function app_faq_suggestions(PDO $db, mixed $categoryValue, mixed $textValue, in
         $sameCategory = $categoryId !== null && $entryCategory !== '' && $entryCategory === $categoryId;
         $score = app_faq_similarity_score(
             $text,
-            (string)$entry['question'] . ' ' . (string)$entry['answer'],
+            (string)$entry['question'] . ' ' . (string)$entry['answer'] . ' ' . (string)($entry['search_terms'] ?? ''),
             $sameCategory
         );
 
@@ -1097,8 +1101,11 @@ function app_faq_similarity_score(string $left, string $right, bool $sameCategor
 function app_faq_autopilot_recommendation(PDO $db, array $ticket, string $question, string $answerDraft): array
 {
     $best = null;
+    $searchSelect = app_faq_synergy_ready($db)
+        ? ",COALESCE((SELECT GROUP_CONCAT(st.term SEPARATOR ' ') FROM faq_entry_search_terms st WHERE st.entry_id=faq_entries.id),'') AS search_terms"
+        : ",'' AS search_terms";
     $entries = $db->query(
-        "SELECT id,category_id,question,answer
+        "SELECT id,category_id,question,answer" . $searchSelect . "
          FROM faq_entries
          WHERE status='published'
          ORDER BY updated_at DESC,id DESC
@@ -1110,7 +1117,7 @@ function app_faq_autopilot_recommendation(PDO $db, array $ticket, string $questi
             && (string)($entry['category_id'] ?? '') === (string)($ticket['category_id'] ?? '');
         $score = app_faq_similarity_score(
             $question . ' ' . (string)($ticket['description'] ?? ''),
-            (string)$entry['question'] . ' ' . (string)$entry['answer'],
+            (string)$entry['question'] . ' ' . (string)$entry['answer'] . ' ' . (string)($entry['search_terms'] ?? ''),
             $sameCategory
         );
         if ($best === null || $score > $best['score']) {
@@ -1173,6 +1180,109 @@ function app_db_id(mixed $value): ?string
         return null;
     }
     return $value;
+}
+
+function app_faq_synergy_ready(PDO $db): bool
+{
+    try {
+        $db->query('SELECT id FROM faq_entry_search_terms LIMIT 0');
+        $db->query('SELECT id FROM faq_entry_revisions LIMIT 0');
+        return true;
+    } catch (Throwable) {
+        return false;
+    }
+}
+
+function app_faq_add_search_term(PDO $db, string $entryId, mixed $termValue, ?string $ticketId = null): void
+{
+    if (!app_faq_synergy_ready($db)) return;
+    $entryId = app_db_id($entryId) ?? '';
+    if ($entryId === '') return;
+
+    if (!is_string($termValue)) return;
+    $term = trim((string)preg_replace('/\s+/u', ' ', $termValue));
+    if ($term === '') return;
+    if (mb_strlen($term, 'UTF-8') > 500) {
+        $term = rtrim(mb_substr($term, 0, 500, 'UTF-8'));
+    }
+
+    $q = $db->prepare(
+        'INSERT IGNORE INTO faq_entry_search_terms(entry_id,source_ticket_id,term)
+         VALUES(:entry,:ticket,:term)'
+    );
+    $q->execute([
+        'entry'=>$entryId,
+        'ticket'=>$ticketId,
+        'term'=>$term,
+    ]);
+}
+
+function app_faq_add_ticket_search_terms(PDO $db, string $entryId, ?string $ticketId, string $proposalQuestion = ''): void
+{
+    if (!app_faq_synergy_ready($db)) return;
+    if ($proposalQuestion !== '') {
+        app_faq_add_search_term($db, $entryId, $proposalQuestion, $ticketId);
+    }
+    if ($ticketId === null) return;
+
+    $q = $db->prepare('SELECT description,device,defect_subject FROM tickets WHERE id=:id');
+    $q->execute(['id'=>$ticketId]);
+    $ticket = $q->fetch();
+    if ($ticket === false) return;
+
+    foreach (['description','device','defect_subject'] as $field) {
+        $value = trim((string)($ticket[$field] ?? ''));
+        if ($value !== '') app_faq_add_search_term($db, $entryId, $value, $ticketId);
+    }
+}
+
+function app_faq_archive_revision(
+    PDO $db,
+    string $entryId,
+    string $adminId,
+    string $changeType,
+    ?string $note = null
+): void {
+    if (!app_faq_synergy_ready($db)) return;
+    if (!in_array($changeType, ['supplement','manual_edit','restore'], true)) {
+        throw new InvalidArgumentException('Ungültiger FAQ-Änderungstyp.');
+    }
+
+    $q = $db->prepare('SELECT question,answer,category_id FROM faq_entries WHERE id=:id');
+    $q->execute(['id'=>$entryId]);
+    $entry = $q->fetch();
+    if ($entry === false) {
+        throw new InvalidArgumentException('FAQ-Eintrag nicht gefunden.');
+    }
+
+    $insert = $db->prepare(
+        'INSERT INTO faq_entry_revisions
+        (entry_id,question,answer,category_id,changed_by_admin_id,change_type,change_note)
+        VALUES(:entry,:question,:answer,:category,:admin,:type,:note)'
+    );
+    $insert->execute([
+        'entry'=>$entryId,
+        'question'=>(string)$entry['question'],
+        'answer'=>(string)$entry['answer'],
+        'category'=>app_db_id($entry['category_id'] ?? null),
+        'admin'=>$adminId,
+        'type'=>$changeType,
+        'note'=>$note,
+    ]);
+}
+
+function app_faq_combined_answer(string $existing, string $new): string
+{
+    $existing = trim($existing);
+    $new = trim($new);
+    if ($new === '' || mb_stripos($existing, $new, 0, 'UTF-8') !== false) return $existing;
+    if ($existing === '') return $new;
+
+    $existingNorm = mb_strtolower((string)preg_replace('/\s+/u', ' ', $existing), 'UTF-8');
+    $newNorm = mb_strtolower((string)preg_replace('/\s+/u', ' ', $new), 'UTF-8');
+    if ($existingNorm === $newNorm) return $existing;
+
+    return $existing . "\n\nErgänzung aus weiterem Supportfall:\n" . $new;
 }
 
 function app_faq_link_ticket(PDO $db, string $entryId, ?string $ticketId): void
@@ -1291,7 +1401,7 @@ function app_faq_admin_pending(PDO $db): array
     if (!app_faq_tables_ready($db)) return [];
     return $db->query(
         "SELECT p.*,c.name AS category_name,t.id AS ticket_exists,
-                sf.question AS suggested_question,sf.answer AS suggested_answer,
+                sf.question AS suggested_question,sf.answer AS suggested_answer,sf.category_id AS suggested_category_id,
                 (SELECT COUNT(*) FROM faq_entry_tickets ft WHERE ft.entry_id=sf.id) AS suggested_ticket_count
          FROM faq_proposals p
          LEFT JOIN categories c ON c.id=p.category_id
@@ -1306,9 +1416,15 @@ function app_faq_admin_pending(PDO $db): array
 function app_faq_admin_entries(PDO $db): array
 {
     if (!app_faq_tables_ready($db)) return [];
+    $synergy = app_faq_synergy_ready($db);
+    $extra = $synergy
+        ? ",(SELECT COUNT(*) FROM faq_entry_search_terms st WHERE st.entry_id=f.id) AS search_term_count,
+            (SELECT COUNT(*) FROM faq_entry_revisions r WHERE r.entry_id=f.id) AS revision_count"
+        : ",0 AS search_term_count,0 AS revision_count";
     return $db->query(
         "SELECT f.*,c.name AS category_name,
-                (SELECT COUNT(*) FROM faq_entry_tickets ft WHERE ft.entry_id=f.id) AS ticket_count
+                (SELECT COUNT(*) FROM faq_entry_tickets ft WHERE ft.entry_id=f.id) AS ticket_count"
+                . $extra . "
          FROM faq_entries f
          LEFT JOIN categories c ON c.id=f.category_id
          ORDER BY CASE f.status WHEN 'published' THEN 0 ELSE 1 END,
@@ -1351,7 +1467,9 @@ function app_faq_admin_publish(PDO $db, string $proposalId, string $adminId, arr
             'updated_admin'=>$adminId,
         ]);
         $entryId = (string)$db->lastInsertId();
-        app_faq_link_ticket($db, $entryId, app_db_id($proposal['source_ticket_id'] ?? null));
+        $sourceTicketId = app_db_id($proposal['source_ticket_id'] ?? null);
+        app_faq_link_ticket($db, $entryId, $sourceTicketId);
+        app_faq_add_ticket_search_terms($db, $entryId, $sourceTicketId, $question);
 
         $update = $db->prepare(
             "UPDATE faq_proposals
@@ -1373,19 +1491,16 @@ function app_faq_admin_publish(PDO $db, string $proposalId, string $adminId, arr
     }
 }
 
-function app_faq_admin_merge(PDO $db, string $proposalId, string $adminId, array $input): void
+function app_faq_admin_link_existing(PDO $db, string $proposalId, string $adminId): void
 {
     if (preg_match('/\A[1-9][0-9]{0,19}\z/', $proposalId) !== 1) {
         throw new InvalidArgumentException('Ungültiger FAQ-Entwurf.');
     }
-    $question = app_text($input['faq_question'] ?? '', 400, true, 'Problemfrage');
-    $answer = app_text($input['faq_answer'] ?? '', 8000, true, 'FAQ-Antwort');
-    $categoryId = app_faq_category_id($db, $input['faq_category_id'] ?? '');
 
     $db->beginTransaction();
     try {
         $lock = $db->prepare(
-            'SELECT id,status,source_ticket_id,suggested_entry_id
+            'SELECT id,status,source_ticket_id,suggested_entry_id,question
              FROM faq_proposals WHERE id=:id FOR UPDATE'
         );
         $lock->execute(['id'=>$proposalId]);
@@ -1395,9 +1510,61 @@ function app_faq_admin_merge(PDO $db, string $proposalId, string $adminId, array
         }
 
         $entryId = app_db_id($proposal['suggested_entry_id'] ?? null) ?? '';
-        if (preg_match('/\A[1-9][0-9]{0,19}\z/', $entryId) !== 1) {
-            throw new InvalidArgumentException('Es ist keine bestehende FAQ zum Zusammenführen hinterlegt.');
+        if ($entryId === '') {
+            throw new InvalidArgumentException('Es ist keine bestehende FAQ zum Verknüpfen hinterlegt.');
         }
+        $ticketId = app_db_id($proposal['source_ticket_id'] ?? null);
+
+        app_faq_link_ticket($db, $entryId, $ticketId);
+        app_faq_add_ticket_search_terms($db, $entryId, $ticketId, (string)$proposal['question']);
+
+        $update = $db->prepare(
+            "UPDATE faq_proposals
+             SET status='accepted',moderated_by_admin_id=:admin,
+                 moderated_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6)
+             WHERE id=:id"
+        );
+        $update->execute(['admin'=>$adminId,'id'=>$proposalId]);
+        $db->commit();
+    } catch (Throwable $error) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $error;
+    }
+}
+
+function app_faq_admin_merge(PDO $db, string $proposalId, string $adminId, array $input): void
+{
+    if (preg_match('/\A[1-9][0-9]{0,19}\z/', $proposalId) !== 1) {
+        throw new InvalidArgumentException('Ungültiger FAQ-Entwurf.');
+    }
+    $question = app_text($input['merge_question'] ?? '', 400, true, 'Gemeinsame Problemfrage');
+    $answer = app_text($input['merge_answer'] ?? '', 8000, true, 'Gemeinsame FAQ-Antwort');
+    $categoryId = app_faq_category_id($db, $input['merge_category_id'] ?? '');
+
+    $db->beginTransaction();
+    try {
+        $lock = $db->prepare(
+            'SELECT id,status,source_ticket_id,suggested_entry_id,question
+             FROM faq_proposals WHERE id=:id FOR UPDATE'
+        );
+        $lock->execute(['id'=>$proposalId]);
+        $proposal = $lock->fetch();
+        if ($proposal === false || $proposal['status'] !== 'pending') {
+            throw new InvalidArgumentException('Dieser FAQ-Entwurf ist nicht mehr zur Moderation verfügbar.');
+        }
+
+        $entryId = app_db_id($proposal['suggested_entry_id'] ?? null) ?? '';
+        if ($entryId === '') {
+            throw new InvalidArgumentException('Es ist keine bestehende FAQ zum Ergänzen hinterlegt.');
+        }
+
+        app_faq_archive_revision(
+            $db,
+            $entryId,
+            $adminId,
+            'supplement',
+            'Ergänzt aus FAQ-Entwurf #' . $proposalId
+        );
 
         $updateEntry = $db->prepare(
             "UPDATE faq_entries
@@ -1413,28 +1580,49 @@ function app_faq_admin_merge(PDO $db, string $proposalId, string $adminId, array
             'admin'=>$adminId,
             'id'=>$entryId,
         ]);
-        if ($updateEntry->rowCount() < 1) {
-            $exists = $db->prepare('SELECT id FROM faq_entries WHERE id=:id');
-            $exists->execute(['id'=>$entryId]);
-            if ($exists->fetchColumn() === false) {
-                throw new InvalidArgumentException('Die vorgeschlagene bestehende FAQ wurde nicht gefunden.');
-            }
-        }
 
-        app_faq_link_ticket($db, $entryId, app_db_id($proposal['source_ticket_id'] ?? null));
+        $ticketId = app_db_id($proposal['source_ticket_id'] ?? null);
+        app_faq_link_ticket($db, $entryId, $ticketId);
+        app_faq_add_ticket_search_terms($db, $entryId, $ticketId, (string)$proposal['question']);
 
         $updateProposal = $db->prepare(
             "UPDATE faq_proposals
-             SET question=:question,answer_draft=:answer,category_id=:category,status='accepted',
-                 moderated_by_admin_id=:admin,moderated_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6)
+             SET status='accepted',moderated_by_admin_id=:admin,
+                 moderated_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6)
              WHERE id=:id"
         );
-        $updateProposal->execute([
+        $updateProposal->execute(['admin'=>$adminId,'id'=>$proposalId]);
+        $db->commit();
+    } catch (Throwable $error) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $error;
+    }
+}
+
+function app_faq_admin_edit_entry(PDO $db, string $entryId, string $adminId, array $input): void
+{
+    $entryId = app_db_id($entryId) ?? '';
+    if ($entryId === '') throw new InvalidArgumentException('Ungültiger FAQ-Eintrag.');
+
+    $question = app_text($input['entry_question'] ?? '', 400, true, 'Problemfrage');
+    $answer = app_text($input['entry_answer'] ?? '', 8000, true, 'FAQ-Antwort');
+    $categoryId = app_faq_category_id($db, $input['entry_category_id'] ?? '');
+
+    $db->beginTransaction();
+    try {
+        app_faq_archive_revision($db, $entryId, $adminId, 'manual_edit', 'Manuell im FAQ-Bereich bearbeitet.');
+        $q = $db->prepare(
+            'UPDATE faq_entries
+             SET question=:question,answer=:answer,category_id=:category,
+                 updated_by_admin_id=:admin,updated_at=UTC_TIMESTAMP(6)
+             WHERE id=:id'
+        );
+        $q->execute([
             'question'=>$question,
             'answer'=>$answer,
             'category'=>$categoryId,
             'admin'=>$adminId,
-            'id'=>$proposalId,
+            'id'=>$entryId,
         ]);
         $db->commit();
     } catch (Throwable $error) {
@@ -1442,6 +1630,7 @@ function app_faq_admin_merge(PDO $db, string $proposalId, string $adminId, array
         throw $error;
     }
 }
+
 
 function app_faq_admin_reject(PDO $db, string $proposalId, string $adminId): void
 {
