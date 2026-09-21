@@ -117,12 +117,18 @@ function app_start_session(string $directory, string $name): void
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_trans_sid', '0');
+    // The public access token is intentionally opened from a school portal or
+    // another origin and then converted into a local session. SameSite=Strict
+    // can suppress the freshly issued cookie across that top-level redirect
+    // chain. Lax permits this safe top-level navigation while CSRF protection
+    // still protects state-changing requests. Admin sessions remain Strict.
+    $sameSite = $name === 'schulit_public' ? 'Lax' : 'Strict';
     session_set_cookie_params([
         'lifetime' => 0,
         'path' => '/',
         'secure' => app_is_https(),
         'httponly' => true,
-        'samesite' => 'Strict',
+        'samesite' => $sameSite,
     ]);
     if (!session_start()) {
         throw new RuntimeException('Sitzung konnte nicht gestartet werden.');
