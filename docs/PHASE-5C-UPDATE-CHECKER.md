@@ -58,3 +58,11 @@ Status:
 4. „Jetzt nach Updates suchen“ auslösen.
 5. Verhalten ohne veröffentlichtes Release prüfen.
 6. später Testrelease veröffentlichen und Banner prüfen.
+
+## Hardwaretest Raspberry Pi 4
+
+Am 21.09.2026 erfolgreich getestet:
+- Admin → System → Updates ist erreichbar,
+- manuelle Prüfung über „Jetzt nach Updates suchen“ funktioniert,
+- für die aktuelle Development-Version wurde korrekt kein stabiles Release erkannt,
+- es wurde erwartungsgemäß nichts installiert.
