@@ -157,7 +157,12 @@ Während des Realtests wurden zusätzlich zwei Raspberry-Pi-spezifische Fehler b
 - `/run/schulit` erhält nach einem Neustart wieder korrekte Gruppenrechte für den Webprozess
 - die temporäre `cloudflared`-Datei wird nicht mehr unter einem möglichen `noexec`-`/run` ausgeführt
 
-Noch offen:
+Zusätzlich erfolgreich bestätigt:
 
-1. Raspberry Pi nach fertig eingerichteter Tunnel-Konfiguration neu starten und den automatischen Tunnel-Wiederanlauf prüfen.
-2. Tunnel testweise trennen und bestätigen, dass der lokale Zugriff erhalten bleibt.
+- Raspberry Pi mit bereits eingerichtetem Tunnel neu gestartet
+- `schulit-tunnel.service` startet danach automatisch wieder
+- öffentlicher Kollegiumslink funktioniert nach dem Neustart weiterhin
+
+Optionaler Resttest:
+
+- Tunnel testweise trennen und bestätigen, dass der lokale Zugriff erhalten bleibt. Dieser Test verändert bewusst die Tunnel-Konfiguration und ist für die grundlegende Funktionsfreigabe nicht mehr erforderlich.
