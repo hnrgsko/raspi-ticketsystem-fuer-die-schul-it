@@ -137,14 +137,27 @@ Wenn ein Tunnel lokal eingerichtet ist, prüft der Installer zusätzlich:
 
 Die Erreichbarkeit der öffentlichen Domain wird absichtlich separat über **Verbindung testen** geprüft, damit vorübergehende DNS- oder Internetprobleme kein lokales Softwareupdate blockieren.
 
-## Realtest später
+## Realtest auf Raspberry Pi 4
 
-1. Cloudflare Tunnel im Dashboard anlegen.
-2. Published Application auf `http://localhost:8081` setzen.
-3. Hostname und Token unter Admin → System eintragen.
-4. Aktivierung abwarten.
-5. **Verbindung testen**.
-6. Öffentlichen Kollegiumslink auf Mobilfunk statt WLAN testen.
-7. Adminseite über HTTPS testen.
-8. Raspberry Pi neu starten und prüfen, ob der Tunnel automatisch wiederkommt.
-9. Tunnel testweise trennen und prüfen, dass lokaler Zugriff erhalten bleibt.
+Erfolgreich auf echter Hardware bestätigt:
+
+- Cloudflare Tunnel im Dashboard angelegt
+- Published Application auf `http://localhost:8081` geroutet
+- `cloudflared` über den Adminbereich installiert
+- Tunnel-Dienst aktiv und öffentlicher Hostname erreichbar
+- öffentlicher Kollegiumslink mit Zugangstoken funktioniert über HTTPS
+- Zugangstoken wird nach erfolgreichem Einstieg aus der URL entfernt
+- öffentlicher Session-Cookie funktioniert auch beim Einstieg von einer anderen Site
+- Kollegiumslink kann im Adminbereich rotiert werden
+- alter Kollegiumslink wird nach Rotation ungültig
+- bestehende Kollegiumssitzungen werden bei Rotation beendet
+
+Während des Realtests wurden zusätzlich zwei Raspberry-Pi-spezifische Fehler behoben:
+
+- `/run/schulit` erhält nach einem Neustart wieder korrekte Gruppenrechte für den Webprozess
+- die temporäre `cloudflared`-Datei wird nicht mehr unter einem möglichen `noexec`-`/run` ausgeführt
+
+Noch offen:
+
+1. Raspberry Pi nach fertig eingerichteter Tunnel-Konfiguration neu starten und den automatischen Tunnel-Wiederanlauf prüfen.
+2. Tunnel testweise trennen und bestätigen, dass der lokale Zugriff erhalten bleibt.
