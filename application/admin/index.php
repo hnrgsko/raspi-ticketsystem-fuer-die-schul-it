@@ -543,7 +543,45 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
 <?php endif; ?>
 
 <?php if ($section === 'stats'): ?>
-<section class="panel stats-panel">
+<?php
+$afterAssistant = $usageSummary['ticket_after_assistant'] ?? [];
+$faqPublicOpen = $usageSummary['faq_public_open'] ?? [];
+$faqSuggestionOpen = $usageSummary['faq_suggestion_open'] ?? [];
+$faqHelpful = $usageSummary['faq_suggestion_helpful'] ?? [];
+$ticketAfterFaq = $usageSummary['ticket_after_faq'] ?? [];
+
+$chartDaily = [];
+foreach ($usageDaily as $day) {
+    $chartDaily[] = [
+        'label'=>(new DateTimeImmutable((string)$day['date']))->format('d.m.'),
+        'tickets'=>(int)$day['ticket_created'],
+        'faqOpened'=>(int)$day['faq_suggestion_open'],
+        'faqHelpful'=>(int)$day['faq_suggestion_helpful'],
+    ];
+}
+$chartPayload = [
+    'daily'=>$chartDaily,
+    'ticketStatus'=>[
+        ['label'=>'Offen','value'=>(int)($ticketStats['open'] ?? 0)],
+        ['label'=>'Erledigt','value'=>(int)($ticketStats['done'] ?? 0)],
+    ],
+    'assistant30'=>[
+        ['label'=>'Inline-Chat','value'=>(int)($usageSummary['assistant_inline_use']['30d']['events'] ?? 0)],
+        ['label'=>'Sprechblase','value'=>(int)($usageSummary['assistant_bubble_open']['30d']['events'] ?? 0)],
+        ['label'=>'Extern geöffnet','value'=>(int)($usageSummary['assistant_external_open']['30d']['events'] ?? 0)],
+        ['label'=>'Ticket nach KI','value'=>(int)($afterAssistant['30d']['events'] ?? 0)],
+    ],
+    'faq30'=>[
+        ['label'=>'FAQ auf Startseite geöffnet','value'=>(int)($faqPublicOpen['30d']['events'] ?? 0)],
+        ['label'=>'Vorschlag geöffnet','value'=>(int)($faqSuggestionOpen['30d']['events'] ?? 0)],
+        ['label'=>'Hat geholfen','value'=>(int)($faqHelpful['30d']['events'] ?? 0)],
+        ['label'=>'Ticket nach FAQ','value'=>(int)($ticketAfterFaq['30d']['events'] ?? 0)],
+    ],
+];
+$chartJson = json_encode($chartPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if (!is_string($chartJson)) $chartJson = '{}';
+?>
+<section class="panel stats-panel" data-stats-charts="<?= app_escape($chartJson) ?>">
 <span class="label">Übersicht</span>
 <h1>Statistik</h1>
 <p>Die Statistik zählt ausschließlich aggregierte Nutzungen. Es werden keine IP-Adressen, Namen, Browserkennungen oder Chat-Inhalte gespeichert.</p>
@@ -558,17 +596,40 @@ $tickets = ($user !== null && $db instanceof PDO && $detail === null && $section
   <article class="stats-card"><span>Erledigt</span><strong><?= (int)($ticketStats['done'] ?? 0) ?></strong><small>Tickets</small></article>
 </div>
 
+<div class="stats-chart-grid">
+<article class="stats-chart-card stats-chart-card-wide">
+  <div class="stats-chart-heading"><div><span class="label">30 Tage</span><h3>Ticketverlauf</h3></div><p>Neue Tickets pro Tag</p></div>
+  <div class="stats-chart-canvas" data-chart="ticket-trend"></div>
+</article>
+<article class="stats-chart-card">
+  <div class="stats-chart-heading"><div><span class="label">Bestand</span><h3>Offen / erledigt</h3></div></div>
+  <div class="stats-chart-canvas" data-chart="ticket-status"></div>
+</article>
+</div>
+
 <h2>KI-Assistent</h2>
 <?php if (!$usageReady): ?>
 <p class="notice">Die Nutzungsstatistik wird nach Anwendung der Statistik-Migration verfügbar.</p>
 <?php else: ?>
 <p class="muted stats-explainer">„Nutzungen“ sind Öffnungen bzw. tatsächliche Einstiege. „Sitzungen“ werden pro Zugangsweg und Kalendertag höchstens einmal je Browsersitzung gezählt. Dieselbe Sitzung kann mehrere Zugangswege verwenden.</p>
-<?php $afterAssistant = $usageSummary['ticket_after_assistant'] ?? []; ?>
-<div class="stats-highlight">
-  <div><span>Tickets nach Assistent-Nutzung · 30 Tage</span><strong><?= (int)($afterAssistant['30d']['events'] ?? 0) ?></strong></div>
-  <div><span>Tickets nach Assistent-Nutzung · Gesamt</span><strong><?= (int)($afterAssistant['all']['events'] ?? 0) ?></strong></div>
-  <p>Gezählt wird nur, wenn in derselben Browsersitzung zuvor einer der Assistenten-Zugänge genutzt wurde. Es werden keine Personen identifiziert.</p>
+
+<div class="stats-chart-grid">
+<article class="stats-chart-card stats-chart-card-wide">
+  <div class="stats-chart-heading">
+    <div><span class="label">Letzte 30 Tage</span><h3>KI-Nutzung nach Zugangsweg</h3></div>
+    <p><?= (int)($afterAssistant['30d']['events'] ?? 0) ?> Ticket(s) nach vorheriger KI-Nutzung</p>
+  </div>
+  <div class="stats-chart-canvas" data-chart="assistant"></div>
+</article>
+<article class="stats-chart-card stats-kpi-side">
+  <div class="stats-side-kpi"><span>Ticket nach KI · 30 Tage</span><strong><?= (int)($afterAssistant['30d']['events'] ?? 0) ?></strong></div>
+  <div class="stats-side-kpi"><span>Ticket nach KI · Gesamt</span><strong><?= (int)($afterAssistant['all']['events'] ?? 0) ?></strong></div>
+  <p>Gezählt wird nur, wenn in derselben Browsersitzung zuvor einer der Assistenten-Zugänge genutzt wurde.</p>
+</article>
 </div>
+
+<details class="stats-details">
+<summary>KI-Detailwerte nach Zeitraum anzeigen</summary>
 <div class="stats-assistant-grid">
 <?php
 $statLabels = [
@@ -591,23 +652,30 @@ foreach ($statLabels as $metric=>$meta):
 </article>
 <?php endforeach; ?>
 </div>
+</details>
 
 <h2>FAQ & Selbsthilfe</h2>
-<?php
-$faqPublicOpen = $usageSummary['faq_public_open'] ?? [];
-$faqSuggestionOpen = $usageSummary['faq_suggestion_open'] ?? [];
-$faqHelpful = $usageSummary['faq_suggestion_helpful'] ?? [];
-$ticketAfterFaq = $usageSummary['ticket_after_faq'] ?? [];
-?>
+<div class="stats-chart-grid">
+<article class="stats-chart-card">
+  <div class="stats-chart-heading"><div><span class="label">Letzte 30 Tage</span><h3>Self-Service-Wirkung</h3></div></div>
+  <div class="stats-chart-canvas" data-chart="faq"></div>
+</article>
+<article class="stats-chart-card stats-chart-card-wide">
+  <div class="stats-chart-heading"><div><span class="label">30 Tage</span><h3>FAQ-Nutzung im Verlauf</h3></div><p>Vorschlag geöffnet vs. „hat geholfen“</p></div>
+  <div class="stats-chart-canvas" data-chart="self-service-trend"></div>
+</article>
+</div>
+
 <div class="stats-highlight faq-stats-highlight">
   <div><span>FAQ-Vorschläge geöffnet · 30 Tage</span><strong><?= (int)($faqSuggestionOpen['30d']['events'] ?? 0) ?></strong></div>
   <div><span>„Hat geholfen“ · 30 Tage</span><strong><?= (int)($faqHelpful['30d']['events'] ?? 0) ?></strong></div>
   <div><span>Tickets nach FAQ-Nutzung · 30 Tage</span><strong><?= (int)($ticketAfterFaq['30d']['events'] ?? 0) ?></strong></div>
   <div><span>FAQ auf Startseite geöffnet · 30 Tage</span><strong><?= (int)($faqPublicOpen['30d']['events'] ?? 0) ?></strong></div>
-  <p>Damit lässt sich abschätzen, ob veröffentlichte FAQ und die automatische Vorschaltung tatsächlich Supportfälle abfangen. Es werden weiterhin nur anonyme Tages- und Sitzungszähler gespeichert.</p>
+  <p>Damit lässt sich abschätzen, ob veröffentlichte FAQ und die automatische Vorschaltung tatsächlich Supportfälle abfangen.</p>
 </div>
 
-<h2>Verlauf der letzten 30 Tage</h2>
+<details class="stats-details stats-raw-details">
+<summary>Rohdaten der letzten 30 Tage anzeigen</summary>
 <div class="stats-table-wrap">
 <table class="stats-table">
 <thead><tr><th>Tag</th><th>Tickets</th><th>Inline-Chat</th><th>Sprechblase</th><th>Extern</th><th>Ticket nach KI</th><th>FAQ-Vorschlag</th><th>FAQ hilfreich</th><th>Ticket nach FAQ</th></tr></thead>
@@ -628,6 +696,7 @@ $ticketAfterFaq = $usageSummary['ticket_after_faq'] ?? [];
 </tbody>
 </table>
 </div>
+</details>
 <?php endif; ?>
 </section>
 
@@ -1266,5 +1335,6 @@ $lastBackup = is_array($backupStatus['last_backup'] ?? null) ? $backupStatus['la
 <?php endif; ?>
 </main>
 <footer class="admin-footer">Schul-IT Ticketsystem · lokale Raspberry-Pi-Instanz<?php if (is_array($updateStatus) && !empty($updateStatus['installed_version'])): ?> · Version <?= app_escape((string)$updateStatus['installed_version']) ?><?= ($updateStatus['available'] ?? false) ? ' · Update verfügbar' : '' ?><?php endif; ?></footer>
+<?php if ($user !== null && $section === 'stats'): ?><script src="/assets/stats-charts.js" defer></script><?php endif; ?>
 </body>
 </html>
