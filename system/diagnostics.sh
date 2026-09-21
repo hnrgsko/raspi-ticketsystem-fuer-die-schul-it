@@ -48,10 +48,17 @@ else
 fi
 
 section "Dienste (aktiv / aktiviert)"
-for unit in apache2.service mariadb.service schulit-setupd.service schulit-backup.timer schulit-update-check.timer schulit-tunnel.service; do
+for unit in apache2.service mariadb.service schulit-setupd.service schulit-backup.timer schulit-update-check.timer schulit-development-update.service schulit-tunnel.service; do
   printf '%-34s ' "${unit}:"
   service_state "${unit}"
 done
+
+section "Entwicklungsupdate"
+if [[ -r /var/lib/schulit/update-state/development.json ]]; then
+  jq -r '"Status: " + (.state // "?") + (if (.finished_at // "") != "" then " · zuletzt: " + .finished_at else "" end) + (if (.message // "") != "" then " · " + .message else "" end)' /var/lib/schulit/update-state/development.json 2>/dev/null || echo "Statusdatei nicht lesbar"
+else
+  echo "Noch kein Entwicklungsupdate ausgeführt."
+fi
 
 section "Lokale Erreichbarkeit"
 for target in "Setup|http://127.0.0.1:8080/" "Ticketsystem|http://127.0.0.1:8081/" "Admin|http://127.0.0.1:8081/admin/"; do
