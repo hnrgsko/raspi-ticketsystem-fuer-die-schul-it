@@ -916,6 +916,13 @@ def handle(request: dict[str, Any]) -> dict[str, Any]:
         return update_core.status()
     if action == "check_updates":
         return update_core.check()
+    if action == "development_update_status":
+        return update_core.development_status()
+    if action == "start_development_update":
+        try:
+            return update_core.start_development_update()
+        except update_core.UpdateError as exc:
+            raise SetupError(str(exc)) from exc
     raise SetupError("Unbekannte Setup-Aktion.")
 
 
