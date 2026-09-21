@@ -367,6 +367,8 @@ Dokumentation: [Phase 5b – Administratorkonten](docs/PHASE-5B-ADMIN-ACCOUNTS.m
 
 ### Phase 5c – Updateprüfung
 
+Für Entwicklungsinstanzen gibt es zusätzlich einen Hardware-Test-Workflow über **Admin → System → Updates → Entwicklerversion aus GitHub aktualisieren**. Dieser lädt den aktuellen `main`-Stand und führt den normalen Installer im Hintergrund aus. Stable-Installationen erhalten diesen unsignierten Entwicklungsweg nicht.
+
 Implementiert, nächster Realtest:
 
 - automatische Releaseprüfung alle sechs Stunden
