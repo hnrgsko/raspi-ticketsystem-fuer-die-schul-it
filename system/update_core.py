@@ -83,18 +83,23 @@ def _write_dev_status(payload: dict[str, Any]) -> None:
     tmp.replace(DEV_STATUS_FILE)
 
 
-def _unit_active(unit: str) -> bool:
+def _unit_state(unit: str) -> str:
     try:
         completed = subprocess.run(
-            ["systemctl", "is-active", "--quiet", unit],
-            stdout=subprocess.DEVNULL,
+            ["systemctl", "show", "--property=ActiveState", "--value", unit],
+            stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
+            text=True,
             check=False,
             timeout=10,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-    return completed.returncode == 0
+        return ""
+    return completed.stdout.strip().lower() if completed.returncode == 0 else ""
+
+
+def _unit_running(unit: str) -> bool:
+    return _unit_state(unit) in {"active", "activating", "reloading"}
 
 
 def development_status() -> dict[str, Any]:
@@ -118,7 +123,7 @@ def development_status() -> dict[str, Any]:
         except (OSError, json.JSONDecodeError):
             pass
 
-    active = _unit_active(DEV_UNIT)
+    active = _unit_running(DEV_UNIT)
     payload["ok"] = True
     payload["supported"] = supported
     payload["service_active"] = active
@@ -127,10 +132,24 @@ def development_status() -> dict[str, Any]:
         if not payload.get("message"):
             payload["message"] = "Entwicklungsupdate läuft."
     elif payload.get("state") == "running":
-        payload["state"] = "failed"
-        payload["finished_at"] = payload.get("finished_at") or now_iso()
-        payload["message"] = "Der Entwicklungsupdate-Prozess läuft nicht mehr. Der letzte Lauf wurde nicht sauber abgeschlossen."
-        _write_dev_status(payload)
+        # systemd --no-block returns before an oneshot service necessarily
+        # reaches ActiveState=activating. Do not mark the run stale during
+        # this short startup window.
+        grace = False
+        started_raw = str(payload.get("started_at") or "")
+        if started_raw:
+            try:
+                started = dt.datetime.fromisoformat(started_raw)
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=dt.timezone.utc)
+                grace = (dt.datetime.now(dt.timezone.utc) - started).total_seconds() < 30
+            except ValueError:
+                grace = False
+        if not grace:
+            payload["state"] = "failed"
+            payload["finished_at"] = payload.get("finished_at") or now_iso()
+            payload["message"] = "Der Entwicklungsupdate-Prozess läuft nicht mehr. Der letzte Lauf wurde nicht sauber abgeschlossen."
+            _write_dev_status(payload)
     return payload
 
 
@@ -138,8 +157,11 @@ def start_development_update() -> dict[str, Any]:
     conf = _read_system_conf()
     if conf.get("INSTALL_CHANNEL", "development") != "development":
         raise UpdateError("Direkte GitHub-main-Updates sind nur auf Entwicklungsinstanzen erlaubt.")
-    if _unit_active(DEV_UNIT):
-        return development_status()
+    if _unit_running(DEV_UNIT):
+        # Return the optimistic starting state instead of immediately re-checking
+    # systemd. The service is started with --no-block and may still be in the
+    # transition to ActiveState=activating.
+    return starting
 
     starting = {
         "ok": True,
