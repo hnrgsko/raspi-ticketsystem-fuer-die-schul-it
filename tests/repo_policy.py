@@ -94,7 +94,7 @@ def check_required_security_headers() -> None:
 
 def check_dev_updater_dependency() -> None:
     update_service = (ROOT / "installer" / "update-service.sh").read_text(encoding="utf-8")
-    if "Requires=mariadb.service" in update_service:
+    if re.search(r"(?m)^\s*Requires=mariadb\.service\s*$", update_service):
         fail(
             "Development updater must not Require=mariadb.service; "
             "the installer deliberately restarts MariaDB during updates."
