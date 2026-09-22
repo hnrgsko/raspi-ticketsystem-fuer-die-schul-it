@@ -126,3 +126,16 @@ Bestätigt:
 - neue PID-basierte Installer-Sperre blockiert nicht dauerhaft nach abgebrochenen Unterprozessen,
 - aktueller `main`-Stand lässt sich wieder vollständig installieren,
 - Systemprüfungen laufen nach beruhigtem Dienstzustand sauber durch.
+
+
+## Fix: Updater darf nicht vom MariaDB-Lifecycle abhängen
+
+Beim Hardwaretest zeigte sich ein systemd-Abhängigkeitsproblem: Der Entwicklungs-Updater hatte `Requires=mariadb.service`. Der normale Installer startet MariaDB während des Datenbankschritts bewusst neu. Dadurch beendete systemd gleichzeitig den abhängigen Entwicklungs-Updater mit `SIGTERM`.
+
+Korrektur:
+
+- der Entwicklungs-Updater hängt nur noch von `network-online.target` ab,
+- MariaDB wird weiterhin vom normalen Installer selbst geprüft und verwaltet,
+- ein MariaDB-Neustart während des Updates beendet den Updater dadurch nicht mehr.
+
+Dieses Verhalten wurde auf dem Raspberry Pi 4 während des Live-Update-Tests identifiziert.
