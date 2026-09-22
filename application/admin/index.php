@@ -1038,7 +1038,9 @@ $isCurrent = $devState === 'running' && $stepKey === $devCurrentKey;
 </div>
 
 <p class="development-update-final <?= $devState === 'success' ? 'success' : ($devState === 'failed' ? 'error' : '') ?>" data-dev-final<?= in_array($devState, ['success','failed'], true) ? '' : ' hidden' ?>><?= app_escape((string)($devUpdateStatus['message'] ?? '')) ?></p>
-<button type="button" class="secondary-button" data-dev-reload onclick="window.location.reload()"<?= $devState === 'success' ? '' : ' hidden' ?>>Aktualisierte Seite neu laden</button>
+<?php if ($devState === 'success'): ?>
+<button type="button" class="secondary-button" data-dev-reload onclick="window.location.reload()">Aktualisierte Seite neu laden</button>
+<?php endif; ?>
 </div>
 
 <form method="post">
