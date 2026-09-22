@@ -10,8 +10,10 @@ import datetime as dt
 import json
 import os
 import pathlib
+import selectors
 import subprocess
 import tempfile
+import time
 from typing import Any
 
 STATUS_FILE = pathlib.Path("/var/lib/schulit/update-state/development.json")
@@ -162,9 +164,32 @@ def main() -> int:
             env=env,
         )
 
+        started_monotonic = time.monotonic()
+        last_output = started_monotonic
+        overall_timeout = 1800
+        silence_timeout = 600
+
         try:
             assert process.stdout is not None
-            for line in process.stdout:
+            selector = selectors.DefaultSelector()
+            selector.register(process.stdout, selectors.EVENT_READ)
+
+            while process.poll() is None:
+                now = time.monotonic()
+                if now - started_monotonic > overall_timeout:
+                    raise TimeoutError("Gesamtlaufzeit überschritten")
+                if now - last_output > silence_timeout:
+                    raise TimeoutError("Zu lange keine Installer-Ausgabe")
+
+                events = selector.select(timeout=1.0)
+                if not events:
+                    continue
+
+                line = process.stdout.readline()
+                if line == "":
+                    continue
+
+                last_output = time.monotonic()
                 append_log(line)
                 clean = line.strip()
                 if not clean.startswith("[schulit] "):
@@ -178,7 +203,26 @@ def main() -> int:
                             current_key = step_key
                             write_status(step_payload(current_key, started_at, completed_steps))
                         break
-            returncode = process.wait(timeout=120)
+
+            for line in process.stdout:
+                append_log(line)
+
+            returncode = process.wait(timeout=30)
+        except TimeoutError as exc:
+            process.terminate()
+            try:
+                process.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+            write_status({
+                **step_payload(current_key, started_at, completed_steps),
+                "ok": False,
+                "state": "failed",
+                "finished_at": now_iso(),
+                "message": f"Entwicklungsupdate wurde automatisch beendet: {exc}.",
+            })
+            return 1
         except Exception:
             process.kill()
             process.wait()
