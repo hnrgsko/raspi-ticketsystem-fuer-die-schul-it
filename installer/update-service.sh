@@ -30,9 +30,11 @@ EOF
 cat > /etc/systemd/system/schulit-development-update.service <<'EOF'
 [Unit]
 Description=Schul-IT development update from GitHub main
-After=network-online.target mariadb.service
+After=network-online.target
 Wants=network-online.target
-Requires=mariadb.service
+# Do not require MariaDB here: the installer intentionally restarts MariaDB
+# during an update. A Requires= dependency would make systemd terminate this
+# updater exactly while the database service is being restarted.
 
 [Service]
 Type=oneshot
