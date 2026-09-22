@@ -5,6 +5,14 @@ require_root
 
 export DEBIAN_FRONTEND=noninteractive
 
+# A development update itself runs as a systemd service. If Debian's
+# needrestart is present, do not let package maintenance restart that updater
+# out from underneath the running installer. Regular services are restarted
+# explicitly by our installer where required.
+if [[ "${SCHULIT_DEV_UPDATE:-0}" == "1" ]]; then
+  export NEEDRESTART_MODE=l
+fi
+
 packages=(
   apache2
   mariadb-server
