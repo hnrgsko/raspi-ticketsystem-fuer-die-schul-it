@@ -113,3 +113,16 @@ Entwicklungsupdates können im Adminbereich live verfolgt werden. Während der I
 Die Anzeige aktualisiert sich automatisch, ohne dass die Seite manuell neu geladen werden muss.
 
 Aus Sicherheitsgründen werden keine Roh-Installerlogs an den Browser übertragen. Die Weboberfläche erhält ausschließlich freigegebene Fortschrittsdaten. Setup- und Kollegiums-Zugangstokens werden bei Entwicklungsupdates außerdem nicht mehr in das Updateprotokoll geschrieben.
+
+
+## Hardwaretest nach Lock-/Dienstreparatur
+
+Nach einem abgebrochenen Development-Update wurden die Installer-Sperre und der Updater gehärtet. Anschließend wurde der normale Installer auf Raspberry Pi 4 erneut ausgeführt und lief vollständig sauber durch.
+
+Bestätigt:
+
+- MariaDB aktiv und per Unix-Socket erreichbar,
+- `schulit-setupd` aktiv,
+- neue PID-basierte Installer-Sperre blockiert nicht dauerhaft nach abgebrochenen Unterprozessen,
+- aktueller `main`-Stand lässt sich wieder vollständig installieren,
+- Systemprüfungen laufen nach beruhigtem Dienstzustand sauber durch.
