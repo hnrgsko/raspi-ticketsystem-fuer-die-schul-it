@@ -126,6 +126,11 @@ def development_status() -> dict[str, Any]:
         payload["state"] = "running"
         if not payload.get("message"):
             payload["message"] = "Entwicklungsupdate läuft."
+    elif payload.get("state") == "running":
+        payload["state"] = "failed"
+        payload["finished_at"] = payload.get("finished_at") or now_iso()
+        payload["message"] = "Der Entwicklungsupdate-Prozess läuft nicht mehr. Der letzte Lauf wurde nicht sauber abgeschlossen."
+        _write_dev_status(payload)
     return payload
 
 
