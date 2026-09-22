@@ -92,6 +92,15 @@ def check_required_security_headers() -> None:
         fail("Application vhost is missing security header(s): " + ", ".join(missing))
 
 
+def check_dev_updater_dependency() -> None:
+    update_service = (ROOT / "installer" / "update-service.sh").read_text(encoding="utf-8")
+    if "Requires=mariadb.service" in update_service:
+        fail(
+            "Development updater must not Require=mariadb.service; "
+            "the installer deliberately restarts MariaDB during updates."
+        )
+
+
 def check_no_school_specific_branding() -> None:
     # Portable repository must not silently become tied to the GSK production
     # instance. Documentation may discuss generic examples, but runtime files
@@ -129,6 +138,7 @@ def main() -> None:
     check_migrations()
     check_duplicate_pdo_parameters()
     check_required_security_headers()
+    check_dev_updater_dependency()
     check_no_school_specific_branding()
     print("Repository policy checks passed.")
 
