@@ -43,6 +43,10 @@ UMask=0027
 PrivateTmp=true
 ProtectHome=true
 NoNewPrivileges=true
+# Development updates execute the full installer and may legitimately take
+# several minutes on a Raspberry Pi, especially while apt is working.
+TimeoutStartSec=35min
+TimeoutStopSec=30s
 
 EOF
 
