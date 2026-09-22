@@ -158,10 +158,7 @@ def start_development_update() -> dict[str, Any]:
     if conf.get("INSTALL_CHANNEL", "development") != "development":
         raise UpdateError("Direkte GitHub-main-Updates sind nur auf Entwicklungsinstanzen erlaubt.")
     if _unit_running(DEV_UNIT):
-        # Return the optimistic starting state instead of immediately re-checking
-    # systemd. The service is started with --no-block and may still be in the
-    # transition to ActiveState=activating.
-    return starting
+        return development_status()
 
     starting = {
         "ok": True,
@@ -192,7 +189,10 @@ def start_development_update() -> dict[str, Any]:
             "Entwicklungsupdate konnte nicht gestartet werden"
             + (f": {detail}" if detail else ".")
         )
-    return development_status()
+    # systemd start --no-block can return before the oneshot unit reaches
+    # ActiveState=activating. Keep the optimistic running state for this
+    # response; subsequent status calls include a startup grace period.
+    return starting
 
 
 def status() -> dict[str, Any]:
