@@ -52,6 +52,12 @@ TimeoutStopSec=30s
 
 EOF
 
+# Remove the temporary compatibility override used to recover test systems
+# affected by the old Requires=mariadb.service dependency. The base unit above
+# is now safe across deliberate MariaDB restarts.
+rm -f /etc/systemd/system/schulit-development-update.service.d/10-no-mariadb.conf 2>/dev/null || true
+rmdir /etc/systemd/system/schulit-development-update.service.d 2>/dev/null || true
+
 cat > /etc/systemd/system/schulit-update-check.timer <<'EOF'
 [Unit]
 Description=Schul-IT Releaseprüfung
